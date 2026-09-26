@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head"><div><h1>Prévia do e-mail</h1><p>{{ lead.office }} · {{ lead.email }}</p></div><a class="btn" href="{{ url_for('leads') }}">Voltar</a></div>
+<div class="card email-preview"><p><b>Assunto:</b> {{ subject }}</p><hr><pre>{{ body }}</pre></div>
+<form method="post" action="{{ url_for('send_one', lead_id=lead.id) }}"><button class="btn primary" type="submit" {% if not send_enabled %}disabled{% endif %}>Enviar agora</button>{% if not send_enabled %}<span class="muted">Envios ainda bloqueados no Railway.</span>{% endif %}</form>
+{% endblock %}
