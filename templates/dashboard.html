@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head"><div><h1>Painel de prospecção</h1><p>Envio individual pelo Titan com controle de limite e histórico.</p></div><a class="btn" href="{{ url_for('leads') }}">Abrir leads</a></div>
+<div class="grid four">
+  <div class="card metric"><span>Total</span><strong>{{ total }}</strong></div>
+  <div class="card metric"><span>Não contatados</span><strong>{{ pending }}</strong></div>
+  <div class="card metric"><span>Enviados</span><strong>{{ sent }}</strong></div>
+  <div class="card metric"><span>Respostas / oportunidades</span><strong>{{ replies }}</strong></div>
+</div>
+<div class="grid two top-gap">
+  <section class="card"><h2>Segurança de envio</h2>
+    <div class="status-row"><span>SMTP Titan</span><b class="{{ 'ok' if smtp_ready else 'bad' }}">{{ 'Configurado' if smtp_ready else 'Pendente' }}</b></div>
+    <div class="status-row"><span>Envios</span><b class="{{ 'ok' if send_enabled else 'warn' }}">{{ 'Liberados' if send_enabled else 'Bloqueados' }}</b></div>
+    <div class="status-row"><span>Material anexo</span><b class="{{ 'ok' if material else 'warn' }}">{{ material.filename if material else 'Pendente' }}</b></div>
+    <div class="status-row"><span>Hoje</span><b>{{ sent_today }} / {{ daily_limit }}</b></div>
+    <p class="muted">O sistema nasce com SEND_ENABLED=false para impedir qualquer disparo acidental.</p>
+  </section>
+  <section class="card"><h2>Lote atual</h2>
+    {% if batch.running %}<p><strong>Em execução</strong></p><p>{{ batch.done }} de {{ batch.total }} processados · {{ batch.errors }} erro(s)</p>{% else %}<p>Nenhum lote em execução.</p>{% endif %}
+    <p class="muted">Os e-mails são enviados um por um e com intervalo configurável.</p>
+  </section>
+</div>
+{% endblock %}
