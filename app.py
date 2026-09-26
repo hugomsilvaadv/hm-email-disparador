@@ -1,3 +1,4 @@
+import base64
 import csv
 import html
 import hmac
@@ -517,6 +518,13 @@ def test_email():
 
 with app.app_context():
     db.create_all()
+    seed_b64 = os.environ.get("LEADS_SEED_B64", "").strip()
+    if seed_b64 and Lead.query.count() == 0:
+        try:
+            seed_csv = base64.b64decode(seed_b64).decode("utf-8-sig")
+            import_lead_rows(csv.DictReader(io.StringIO(seed_csv)))
+        except Exception as exc:
+            app.logger.error("Falha ao carregar base inicial de leads: %s", exc)
 
 
 if __name__ == "__main__":
