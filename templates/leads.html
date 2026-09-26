@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head"><div><h1>Leads</h1><p>Base comercial da HM Perícia & Cálculos.</p></div></div>
+
+<div class="card import-box">
+  <form method="post" enctype="multipart/form-data">
+    <label>Importar ou atualizar leads por CSV
+      <input type="file" name="file" accept=".csv" required>
+    </label>
+    <button class="btn" type="submit">Importar CSV</button>
+  </form>
+  <p class="muted">Aceita as colunas: Região, Cidade, Escritório, Perfil / área, E-mail, WhatsApp, Endereço, Aderência, Fonte pública e Observações.</p>
+</div>
+
+<form class="filters card" method="get">
+  <input name="q" placeholder="Buscar escritório, cidade ou e-mail" value="{{ request.args.get('q','') }}">
+  <select name="status"><option value="">Todos os status</option>{% for s in status_options %}<option value="{{ s }}" {% if request.args.get('status')==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+  <select name="region"><option value="">Todas as regiões</option>{% for r in regions %}<option value="{{ r }}" {% if request.args.get('region')==r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+<form method="post" action="{{ url_for('send_selected') }}">
+  <div class="actions"><button class="btn primary" type="submit">Enviar selecionados</button><span class="muted">Selecione apenas leads já revisados.</span></div>
+  <div class="table-wrap"><table><thead><tr><th></th><th>Escritório</th><th>Cidade</th><th>Perfil</th><th>E-mail</th><th>Aderência</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+  {% for lead in leads %}
+    <tr>
+      <td><input type="checkbox" name="lead_ids" value="{{ lead.id }}" {% if lead.status not in ['Não contatado','Erro'] %}disabled{% endif %}></td>
+      <td><strong>{{ lead.office }}</strong><small>{{ lead.whatsapp }}</small></td>
+      <td>{{ lead.city }}</td>
+      <td>{{ lead.profile }}</td>
+      <td>{{ lead.email }}</td>
+      <td><span class="pill">{{ lead.adherence }}</span></td>
+      <td>
+        <select name="status_display" disabled><option>{{ lead.status }}</option></select>
+        {% if lead.last_error %}<small class="error-text">{{ lead.last_error }}</small>{% endif %}
+      </td>
+      <td><a class="btn small" href="{{ url_for('preview', lead_id=lead.id) }}">Prévia</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8">Nenhum lead cadastrado. Importe o CSV da base comercial.</td></tr>
+  {% endfor %}
+  </tbody></table></div>
+</form>
+
+{% if leads %}
+<div class="card top-gap">
+  <h2>Atualizar status</h2>
+  <p class="muted">Abra a prévia de um lead para revisar o e-mail. O histórico de envio é atualizado automaticamente.</p>
+</div>
+{% endif %}
+{% endblock %}
