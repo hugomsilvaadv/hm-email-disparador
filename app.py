@@ -103,6 +103,18 @@ class SendLog(db.Model):
     lead = db.relationship("Lead")
 
 
+class ScheduledCampaign(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    campaign_key = db.Column(db.String(180), nullable=False, unique=True, index=True)
+    scheduled_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    recipients_json = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(40), nullable=False, default="pending", index=True)
+    started_at = db.Column(db.DateTime(timezone=True))
+    completed_at = db.Column(db.DateTime(timezone=True))
+    last_error = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 batch_state = {"running": False, "total": 0, "done": 0, "errors": 0, "started_at": None}
 batch_lock = threading.Lock()
 
@@ -210,9 +222,12 @@ def sent_today_count():
     return SendLog.query.filter(SendLog.sent_at >= start, SendLog.result == "sent").count()
 
 
-def send_email_for_lead(lead):
-    if not env_bool("SEND_ENABLED", False):
-        raise RuntimeError("Envios estão bloqueados. Defina SEND_ENABLED=true no Railway somente após o teste Resend.")
+def send_email_for_lead(lead, scheduled=False):
+    if scheduled:
+        if not env_bool("SCHEDULED_SEND_ENABLED", False):
+            raise RuntimeError("Envio agendado está bloqueado.")
+    elif not env_bool("SEND_ENABLED", False):
+        raise RuntimeError("Envios manuais estão bloqueados. Defina SEND_ENABLED=true no Railway somente após o teste Resend.")
     if not resend_config_ready():
         raise RuntimeError("RESEND_API_KEY/FROM_EMAIL ainda não estão configurados.")
     if lead.status == "Não contatar":
@@ -288,6 +303,103 @@ def batch_worker(lead_ids):
                     time.sleep(interval)
         finally:
             batch_state["running"] = False
+
+
+def run_scheduled_campaign(campaign_id):
+    with app.app_context():
+        campaign = db.session.get(ScheduledCampaign, campaign_id)
+        if not campaign:
+            return
+
+        try:
+            recipients = json.loads(campaign.recipients_json)
+        except Exception as exc:
+            campaign.status = "error"
+            campaign.last_error = f"Lista de destinatários inválida: {exc}"
+            campaign.completed_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return
+
+        interval = max(10, int(os.environ.get("MIN_INTERVAL_SECONDS", "120")))
+        errors = []
+
+        for index, recipient in enumerate(recipients):
+            email_addr = str(recipient).strip().lower()
+            lead = Lead.query.filter(db.func.lower(Lead.email) == email_addr).first()
+
+            if not lead:
+                errors.append(f"{email_addr}: lead não encontrado")
+            elif lead.status != "Não contatado":
+                errors.append(f"{email_addr}: ignorado porque status é {lead.status}")
+            else:
+                try:
+                    send_email_for_lead(lead, scheduled=True)
+                except Exception as exc:
+                    lead.status = "Erro"
+                    lead.last_error = str(exc)[:1000]
+                    db.session.add(SendLog(
+                        lead_id=lead.id,
+                        recipient=lead.email,
+                        subject=os.environ.get("EMAIL_SUBJECT", DEFAULT_SUBJECT),
+                        result="error",
+                        detail=str(exc)[:2000],
+                    ))
+                    db.session.commit()
+                    errors.append(f"{email_addr}: {exc}")
+
+            if index < len(recipients) - 1:
+                time.sleep(interval)
+
+        campaign = db.session.get(ScheduledCampaign, campaign_id)
+        campaign.status = "completed_with_errors" if errors else "completed"
+        campaign.completed_at = datetime.now(timezone.utc)
+        campaign.last_error = " | ".join(errors)[:4000] if errors else None
+        db.session.commit()
+
+
+def scheduled_campaign_loop():
+    while True:
+        campaign_id = None
+        try:
+            with app.app_context():
+                now = datetime.now(timezone.utc)
+                campaign = (
+                    ScheduledCampaign.query
+                    .filter(
+                        ScheduledCampaign.status == "pending",
+                        ScheduledCampaign.scheduled_at <= now,
+                    )
+                    .order_by(ScheduledCampaign.scheduled_at.asc())
+                    .first()
+                )
+                if campaign:
+                    claimed = (
+                        ScheduledCampaign.query
+                        .filter(
+                            ScheduledCampaign.id == campaign.id,
+                            ScheduledCampaign.status == "pending",
+                        )
+                        .update(
+                            {
+                                "status": "running",
+                                "started_at": now,
+                            },
+                            synchronize_session=False,
+                        )
+                    )
+                    db.session.commit()
+                    if claimed:
+                        campaign_id = campaign.id
+        except Exception:
+            app.logger.exception("Falha no verificador de campanha agendada.")
+
+        if campaign_id is not None:
+            try:
+                run_scheduled_campaign(campaign_id)
+            except Exception:
+                app.logger.exception("Falha na execução da campanha agendada.")
+
+        time.sleep(15)
 
 
 def import_lead_rows(rows):
@@ -373,6 +485,8 @@ def dashboard():
         resend_ready=resend_config_ready(),
         batch=batch_state.copy(),
         material=CampaignAttachment.query.order_by(CampaignAttachment.id.desc()).first(),
+        scheduled_campaign=ScheduledCampaign.query.order_by(ScheduledCampaign.id.desc()).first(),
+        scheduled_label=os.environ.get("SCHEDULED_SEND_LABEL", ""),
     )
 
 
@@ -546,6 +660,41 @@ with app.app_context():
             import_lead_rows(csv.DictReader(io.StringIO(seed_csv)))
         except Exception as exc:
             app.logger.error("Falha ao carregar base inicial de leads: %s", exc)
+
+    scheduled_key = os.environ.get("SCHEDULED_CAMPAIGN_KEY", "").strip()
+    scheduled_at_raw = os.environ.get("SCHEDULED_SEND_AT", "").strip()
+    scheduled_recipients_raw = os.environ.get("SCHEDULED_RECIPIENTS", "").strip()
+    if scheduled_key and scheduled_at_raw and scheduled_recipients_raw:
+        try:
+            scheduled_at = datetime.fromisoformat(scheduled_at_raw)
+            if scheduled_at.tzinfo is None:
+                scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+            else:
+                scheduled_at = scheduled_at.astimezone(timezone.utc)
+
+            recipients = json.loads(scheduled_recipients_raw)
+            if not isinstance(recipients, list) or not recipients:
+                raise ValueError("SCHEDULED_RECIPIENTS deve ser uma lista JSON não vazia.")
+
+            existing = ScheduledCampaign.query.filter_by(campaign_key=scheduled_key).first()
+            if not existing:
+                db.session.add(ScheduledCampaign(
+                    campaign_key=scheduled_key,
+                    scheduled_at=scheduled_at,
+                    recipients_json=json.dumps(recipients),
+                    status="pending",
+                ))
+                db.session.commit()
+        except Exception as exc:
+            app.logger.error("Falha ao preparar campanha agendada: %s", exc)
+
+
+if env_bool("SCHEDULED_SEND_ENABLED", False):
+    threading.Thread(
+        target=scheduled_campaign_loop,
+        daemon=True,
+        name="hm-scheduled-campaign",
+    ).start()
 
 
 if __name__ == "__main__":
