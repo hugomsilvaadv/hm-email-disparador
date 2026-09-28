@@ -143,6 +143,31 @@ def smtp_config_ready():
     return bool(os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASSWORD"))
 
 
+def send_via_smtp(msg):
+    smtp_host = os.environ.get("SMTP_HOST", "smtp.titan.email")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user = os.environ["SMTP_USER"]
+    smtp_password = os.environ["SMTP_PASSWORD"]
+    context = ssl.create_default_context()
+
+    if smtp_port == 465:
+        smtp = smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=20)
+    else:
+        smtp = smtplib.SMTP(smtp_host, smtp_port, timeout=20)
+        smtp.ehlo()
+        smtp.starttls(context=context)
+        smtp.ehlo()
+
+    try:
+        smtp.login(smtp_user, smtp_password)
+        smtp.send_message(msg)
+    finally:
+        try:
+            smtp.quit()
+        except Exception:
+            smtp.close()
+
+
 def sent_today_count():
     now = datetime.now(timezone.utc)
     start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
@@ -194,14 +219,7 @@ def send_email_for_lead(lead):
             maintype, subtype = "application", "octet-stream"
         msg.add_attachment(material.data, maintype=maintype, subtype=subtype, filename=material.filename)
 
-    with smtplib.SMTP_SSL(
-        smtp_host,
-        smtp_port,
-        context=ssl.create_default_context(),
-        timeout=30,
-    ) as smtp:
-        smtp.login(smtp_user, smtp_password)
-        smtp.send_message(msg)
+    send_via_smtp(msg)
 
     lead.status = "Enviado"
     lead.last_contact = datetime.now(timezone.utc)
@@ -480,14 +498,7 @@ def test_email():
                 msg["From"] = f"Hugo Mendes | HM Perícia & Cálculos <{smtp_user}>"
                 msg["To"] = recipient
                 msg.set_content("Teste concluído com sucesso. O disparador da HM está autenticando no SMTP Titan.")
-                with smtplib.SMTP_SSL(
-                    smtp_host,
-                    smtp_port,
-                    context=ssl.create_default_context(),
-                    timeout=30,
-                ) as smtp:
-                    smtp.login(smtp_user, smtp_password)
-                    smtp.send_message(msg)
+                send_via_smtp(msg)
                 flash("Teste enviado com sucesso.", "success")
             except Exception as exc:
                 flash(f"Falha no teste SMTP: {exc}", "danger")
