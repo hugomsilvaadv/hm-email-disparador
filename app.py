@@ -44,43 +44,26 @@ STATUS_OPTIONS = [
     "Erro",
 ]
 
-DEFAULT_SUBJECT = "Apoio especializado em cálculos trabalhistas para seu escritório"
+DEFAULT_SUBJECT = "Apoio técnico em cálculos trabalhistas"
 DEFAULT_BODY = """Olá, equipe do {office}, tudo bem?
 
-Meu nome é Hugo Mendes e sou responsável pela HM Perícia & Cálculos, especializada no suporte técnico a escritórios de advocacia na elaboração, conferência e revisão de cálculos trabalhistas.
+Meu nome é Hugo Mendes e sou responsável pela HM Perícia & Cálculos.
 
-Identificamos a atuação do escritório{profile_hint} e gostaríamos de apresentar uma possibilidade de apoio técnico terceirizado, especialmente para demandas em que o cálculo exige tempo operacional da equipe jurídica.
+Vi que o escritório atua{profile_hint}. Prestamos apoio técnico terceirizado a advogados e escritórios na elaboração e conferência de cálculos trabalhistas, especialmente em PJe-Calc, liquidação de sentença, atualização de cálculos, conferência da conta da parte contrária e suporte técnico para impugnações.
 
-Entre os serviços prestados estão:
-• elaboração de cálculos trabalhistas no PJe-Calc;
-• liquidação de sentença;
-• cálculos para iniciais, contestações e acordos;
-• conferência e impugnação de cálculos apresentados pela parte contrária;
-• atualização de cálculos;
-• análise de reflexos, FGTS, INSS, IRPF, juros e correção monetária;
-• pareceres e análises técnicas.
+A proposta é funcionar como uma retaguarda técnica do escritório: quando surgir uma demanda de cálculo, a equipe jurídica pode concentrar o tempo na condução do processo e deixar a etapa quantitativa conosco.
 
-Valores iniciais:
-• Cálculo trabalhista completo: a partir de R$ 400,00
-• Parecer/análise técnica: a partir de R$ 200,00
-
-Os valores podem variar conforme a complexidade do processo, o período contratual, a quantidade de documentos e a extensão do cálculo.
-
-Para escritórios com demanda recorrente ou volume mensal de cálculos, trabalhamos também com condições comerciais específicas.
-
-Nosso objetivo é funcionar como uma extensão técnica do escritório: o advogado nos encaminha os documentos e os comandos judiciais, e devolvemos o cálculo estruturado e conferido, inclusive em PJe-Calc, quando necessário.
-
-Anexo, envio uma apresentação breve da HM Perícia & Cálculos.
-
-Se este tipo de apoio não for pertinente ao escritório, basta nos informar e não enviaremos novas mensagens.
+Caso atualmente terceirizem esse tipo de trabalho — ou tenham interesse em conhecer nosso modelo de parceria — posso encaminhar uma apresentação curta com os serviços e valores.
 
 Atenciosamente,
 Hugo Mendes
 Diretor Técnico | Advogado | Perito Judicial
 HM Perícia & Cálculos
-WhatsApp: (31) 95349-1100
+WhatsApp: (31) 99587-1227
 E-mail: hugo@hmpericia.com.br
 hmpericia.com.br
+
+Caso prefira não receber novos contatos da HM, basta nos avisar por este e-mail.
 """
 
 
