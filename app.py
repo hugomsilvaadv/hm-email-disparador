@@ -514,7 +514,7 @@ def material():
 def test_email():
     if request.method == "POST":
         recipient = request.form.get("recipient", "").strip()
-        if not re.match(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", recipient):
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", recipient):
             flash("Informe um e-mail válido.", "danger")
         elif not resend_config_ready():
             flash("Configure RESEND_API_KEY e FROM_EMAIL no Railway primeiro.", "danger")
