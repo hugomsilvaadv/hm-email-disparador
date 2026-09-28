@@ -16,6 +16,18 @@ def main():
         print(f"Execução ignorada: hoje={today}, agendado={expected_date}")
         return
 
+    target_time = os.environ.get("SCHEDULED_RUN_TIME", "09:17").strip()
+    try:
+        target_hour, target_minute = [int(part) for part in target_time.split(":", 1)]
+        now = datetime.now(TZ)
+        target = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+        wait_seconds = (target - now).total_seconds()
+        if wait_seconds > 0:
+            print(f"Aguardando {int(wait_seconds)}s até {target_time} America/Sao_Paulo")
+            time.sleep(wait_seconds)
+    except Exception as exc:
+        raise RuntimeError(f"SCHEDULED_RUN_TIME inválido: {target_time}") from exc
+
     raw = os.environ.get("SCHEDULED_LEADS", "").strip()
     emails = [item.strip().lower() for item in raw.split(",") if item.strip()]
     if not emails:
