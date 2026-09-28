@@ -3,15 +3,15 @@ import csv
 import html
 import hmac
 import io
+import json
 import os
 import re
-import smtplib
-import ssl
 import threading
 import time
 from datetime import datetime, timezone
-from email.message import EmailMessage
 from functools import wraps
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
@@ -139,78 +139,70 @@ def text_to_html(text):
     )
 
 
-def smtp_config_ready():
-    return bool(os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASSWORD"))
+def resend_config_ready():
+    return bool(
+        os.environ.get("RESEND_API_KEY", "").strip()
+        and os.environ.get("FROM_EMAIL", "").strip()
+    )
 
 
-def _smtp_attempt(msg, host, port, mode):
-    smtp_user = os.environ["SMTP_USER"].strip()
-    smtp_password = os.environ["SMTP_PASSWORD"].strip()
-    context = ssl.create_default_context()
-    smtp = None
-    stage = "conexão"
+def send_via_resend(recipient, subject, text_body, html_body, attachments=None):
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    from_email = os.environ.get("FROM_EMAIL", "hugo@hmpericia.com.br").strip()
+    reply_to = os.environ.get("REPLY_TO", from_email).strip()
+    from_name = os.environ.get("FROM_NAME", "Hugo Mendes | HM Perícia & Cálculos").strip()
+
+    if not api_key:
+        raise RuntimeError("RESEND_API_KEY ainda não está configurada.")
+    if not from_email:
+        raise RuntimeError("FROM_EMAIL ainda não está configurado.")
+
+    payload = {
+        "from": f"{from_name} <{from_email}>",
+        "to": [recipient],
+        "subject": subject,
+        "text": text_body,
+        "html": html_body,
+        "reply_to": reply_to,
+    }
+
+    if attachments:
+        payload["attachments"] = [
+            {
+                "filename": item["filename"],
+                "content": base64.b64encode(item["data"]).decode("ascii"),
+            }
+            for item in attachments
+        ]
+
+    req = urllib_request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "HM-Email-Disparador/1.0",
+        },
+        method="POST",
+    )
 
     try:
-        if mode == "ssl":
-            smtp = smtplib.SMTP_SSL(host, port, context=context, timeout=10)
-            stage = "EHLO"
-            smtp.ehlo()
-        else:
-            smtp = smtplib.SMTP(host, port, timeout=10)
-            stage = "EHLO"
-            smtp.ehlo()
-            stage = "STARTTLS"
-            smtp.starttls(context=context)
-            stage = "EHLO após STARTTLS"
-            smtp.ehlo()
-
-        stage = "autenticação"
-        smtp.login(smtp_user, smtp_password)
-
-        stage = "envio da mensagem"
-        smtp.send_message(msg)
-        return None
-
-    except TimeoutError:
-        return f"timeout durante {stage}"
-    except smtplib.SMTPAuthenticationError as exc:
-        code = getattr(exc, "smtp_code", "")
-        return f"falha de autenticação SMTP ({code})"
-    except smtplib.SMTPException as exc:
-        return f"erro SMTP durante {stage}: {exc}"
-    except OSError as exc:
-        return f"erro de rede durante {stage}: {exc}"
-    finally:
-        if smtp is not None:
-            try:
-                smtp.quit()
-            except Exception:
-                try:
-                    smtp.close()
-                except Exception:
-                    pass
-
-
-def send_via_smtp(msg):
-    smtp_host = os.environ.get("SMTP_HOST", "smtp.titan.email").strip()
-    configured_port = int(os.environ.get("SMTP_PORT", "587"))
-
-    attempts = []
-    if configured_port == 465:
-        attempts.append((465, "ssl"))
-        attempts.append((587, "starttls"))
-    else:
-        attempts.append((587, "starttls"))
-        attempts.append((465, "ssl"))
-
-    errors = []
-    for port, mode in attempts:
-        error = _smtp_attempt(msg, smtp_host, port, mode)
-        if error is None:
-            return
-        errors.append(f"{port}/{mode}: {error}")
-
-    raise RuntimeError("Falha SMTP nas duas rotas — " + " | ".join(errors))
+        with urllib_request.urlopen(req, timeout=20) as response:
+            raw = response.read().decode("utf-8")
+            data = json.loads(raw) if raw else {}
+            if response.status < 200 or response.status >= 300:
+                raise RuntimeError(f"Resend retornou HTTP {response.status}.")
+            return data
+    except urllib_error.HTTPError as exc:
+        try:
+            detail = exc.read().decode("utf-8")
+        except Exception:
+            detail = str(exc)
+        raise RuntimeError(f"Resend HTTP {exc.code}: {detail[:800]}") from exc
+    except urllib_error.URLError as exc:
+        raise RuntimeError(f"Falha de conexão com a API da Resend: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise RuntimeError("Timeout ao conectar à API HTTPS da Resend.") from exc
 
 
 def sent_today_count():
@@ -221,9 +213,9 @@ def sent_today_count():
 
 def send_email_for_lead(lead):
     if not env_bool("SEND_ENABLED", False):
-        raise RuntimeError("Envios estão bloqueados. Defina SEND_ENABLED=true no Railway somente após o teste SMTP.")
-    if not smtp_config_ready():
-        raise RuntimeError("SMTP_USER/SMTP_PASSWORD ainda não estão configurados.")
+        raise RuntimeError("Envios estão bloqueados. Defina SEND_ENABLED=true no Railway somente após o teste Resend.")
+    if not resend_config_ready():
+        raise RuntimeError("RESEND_API_KEY/FROM_EMAIL ainda não estão configurados.")
     if lead.status == "Não contatar":
         raise RuntimeError("Lead marcado como Não contatar.")
 
@@ -231,40 +223,34 @@ def send_email_for_lead(lead):
     if sent_today_count() >= daily_limit:
         raise RuntimeError(f"Limite diário de {daily_limit} mensagens atingido.")
 
-    smtp_host = os.environ.get("SMTP_HOST", "smtp.titan.email")
-    smtp_port = int(os.environ.get("SMTP_PORT", "465"))
-    smtp_user = os.environ["SMTP_USER"]
-    smtp_password = os.environ["SMTP_PASSWORD"]
-    from_name = os.environ.get("FROM_NAME", "Hugo Mendes | HM Perícia & Cálculos")
     subject = os.environ.get("EMAIL_SUBJECT", DEFAULT_SUBJECT)
     body = render_body(lead)
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = f"{from_name} <{smtp_user}>"
-    msg["To"] = lead.email
-    msg["Reply-To"] = smtp_user
-    msg.set_content(body)
-    msg.add_alternative(
-        f"""<!doctype html><html><body style='font-family:Arial,Helvetica,sans-serif;color:#14283d;background:#ffffff'>
-        <div style='max-width:680px;margin:auto;padding:24px'>
-          <div style='border-top:5px solid #c9a24a;padding-top:18px'>{text_to_html(body)}</div>
-          <div style='margin-top:22px;padding-top:14px;border-top:1px solid #ddd;color:#667;font-size:12px'>
-            HM Perícia &amp; Cálculos · Precisão técnica · Informações confiáveis · Decisões seguras
-          </div>
-        </div></body></html>""",
-        subtype="html",
+    html_body = (
+        "<!doctype html><html><body style='font-family:Arial,Helvetica,sans-serif;"
+        "color:#14283d;background:#ffffff'>"
+        "<div style='max-width:680px;margin:auto;padding:24px'>"
+        "<div style='border-top:5px solid #c9a24a;padding-top:18px'>"
+        + text_to_html(body)
+        + "</div>"
+        "<div style='margin-top:22px;padding-top:14px;border-top:1px solid #ddd;"
+        "color:#667;font-size:12px'>"
+        "HM Perícia &amp; Cálculos · Precisão técnica · Informações confiáveis · Decisões seguras"
+        "</div></div></body></html>"
     )
 
-    material = CampaignAttachment.query.order_by(CampaignAttachment.id.desc()).first()
-    if material:
-        if "/" in material.mimetype:
-            maintype, subtype = material.mimetype.split("/", 1)
-        else:
-            maintype, subtype = "application", "octet-stream"
-        msg.add_attachment(material.data, maintype=maintype, subtype=subtype, filename=material.filename)
+    attachments = []
+    if env_bool("ATTACH_MATERIAL", False):
+        material = CampaignAttachment.query.order_by(CampaignAttachment.id.desc()).first()
+        if material:
+            attachments.append({"filename": material.filename, "data": material.data})
 
-    send_via_smtp(msg)
+    send_via_resend(
+        recipient=lead.email,
+        subject=subject,
+        text_body=body,
+        html_body=html_body,
+        attachments=attachments,
+    )
 
     lead.status = "Enviado"
     lead.last_contact = datetime.now(timezone.utc)
@@ -385,7 +371,7 @@ def dashboard():
         sent_today=sent_today_count(),
         daily_limit=int(os.environ.get("DAILY_LIMIT", "20")),
         send_enabled=env_bool("SEND_ENABLED", False),
-        smtp_ready=smtp_config_ready(),
+        resend_ready=resend_config_ready(),
         batch=batch_state.copy(),
         material=CampaignAttachment.query.order_by(CampaignAttachment.id.desc()).first(),
     )
@@ -528,29 +514,26 @@ def material():
 def test_email():
     if request.method == "POST":
         recipient = request.form.get("recipient", "").strip()
-        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", recipient):
+        if not re.match(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", recipient):
             flash("Informe um e-mail válido.", "danger")
-        elif not smtp_config_ready():
-            flash("Configure SMTP_USER e SMTP_PASSWORD no Railway primeiro.", "danger")
+        elif not resend_config_ready():
+            flash("Configure RESEND_API_KEY e FROM_EMAIL no Railway primeiro.", "danger")
         else:
             try:
-                smtp_host = os.environ.get("SMTP_HOST", "smtp.titan.email")
-                smtp_port = int(os.environ.get("SMTP_PORT", "465"))
-                smtp_user = os.environ["SMTP_USER"]
-                smtp_password = os.environ["SMTP_PASSWORD"]
-                msg = EmailMessage()
-                msg["Subject"] = "Teste SMTP — HM Perícia & Cálculos"
-                msg["From"] = f"Hugo Mendes | HM Perícia & Cálculos <{smtp_user}>"
-                msg["To"] = recipient
-                msg.set_content("Teste concluído com sucesso. O disparador da HM está autenticando no SMTP Titan.")
-                send_via_smtp(msg)
-                flash("Teste enviado com sucesso.", "success")
+                test_text = "Teste concluído com sucesso. O disparador da HM está enviando pela API HTTPS da Resend."
+                send_via_resend(
+                    recipient=recipient,
+                    subject="Teste Resend — HM Perícia & Cálculos",
+                    text_body=test_text,
+                    html_body=f"<p>{html.escape(test_text)}</p>",
+                )
+                flash("Teste enviado com sucesso pela Resend.", "success")
             except Exception as exc:
-                flash(f"Falha no teste SMTP: {exc}", "danger")
+                flash(f"Falha no teste Resend: {exc}", "danger")
 
     return render_template(
         "test_email.html",
-        smtp_ready=smtp_config_ready(),
+        resend_ready=resend_config_ready(),
         send_enabled=env_bool("SEND_ENABLED", False),
     )
 
