@@ -16,7 +16,11 @@
     <p class="muted">O sistema nasce com SEND_ENABLED=false para impedir qualquer disparo acidental.</p>
   </section>
   <section class="card"><h2>Lote atual</h2>
-    {% if batch.running %}<p><strong>Em execução</strong></p><p>{{ batch.done }} de {{ batch.total }} processados · {{ batch.errors }} erro(s)</p>{% else %}<p>Nenhum lote em execução.</p>{% endif %}
+    {% if batch.running %}<p><strong>Em execução</strong></p><p>{{ batch.done }} de {{ batch.total }} processados · {{ batch.errors }} erro(s)</p>{% else %}<p>Nenhum lote manual em execução.</p>{% endif %}
+    {% if scheduled_campaign %}
+      <div class="status-row"><span>Primeiro lote</span><b class="{{ 'ok' if scheduled_campaign.status == 'completed' else 'warn' }}">{{ scheduled_campaign.status }}</b></div>
+      {% if scheduled_label %}<p><strong>Agendado:</strong> {{ scheduled_label }}</p>{% endif %}
+    {% endif %}
     <p class="muted">Os e-mails são enviados um por um e com intervalo configurável.</p>
   </section>
 </div>
