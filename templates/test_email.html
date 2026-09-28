@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-head"><div><h1>Teste SMTP</h1><p>Valide o Titan antes de liberar a campanha.</p></div></div>
-<div class="card narrow"><p>SMTP: <strong>{{ 'configurado' if smtp_ready else 'pendente' }}</strong></p><p>Campanha: <strong>{{ 'liberada' if send_enabled else 'bloqueada' }}</strong></p>
+<div class="page-head"><div><h1>Teste de envio</h1><p>Valide a Resend antes de liberar a campanha.</p></div></div>
+<div class="card narrow"><p>Resend API: <strong>{{ 'configurada' if resend_ready else 'pendente' }}</strong></p><p>Campanha: <strong>{{ 'liberada' if send_enabled else 'bloqueada' }}</strong></p>
 <form method="post"><label>Enviar teste para<input type="email" name="recipient" placeholder="seu e-mail de teste" required></label><button class="btn primary" type="submit">Enviar teste</button></form>
 </div>
 {% endblock %}
