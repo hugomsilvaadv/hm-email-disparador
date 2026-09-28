@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-head"><div><h1>Painel de prospecção</h1><p>Envio individual pelo Titan com controle de limite e histórico.</p></div><a class="btn" href="{{ url_for('leads') }}">Abrir leads</a></div>
+<div class="page-head"><div><h1>Painel de prospecção</h1><p>Envio individual pela Resend API com controle de limite e histórico.</p></div><a class="btn" href="{{ url_for('leads') }}">Abrir leads</a></div>
 <div class="grid four">
   <div class="card metric"><span>Total</span><strong>{{ total }}</strong></div>
   <div class="card metric"><span>Não contatados</span><strong>{{ pending }}</strong></div>
@@ -9,7 +9,7 @@
 </div>
 <div class="grid two top-gap">
   <section class="card"><h2>Segurança de envio</h2>
-    <div class="status-row"><span>SMTP Titan</span><b class="{{ 'ok' if smtp_ready else 'bad' }}">{{ 'Configurado' if smtp_ready else 'Pendente' }}</b></div>
+    <div class="status-row"><span>Resend API</span><b class="{{ 'ok' if resend_ready else 'bad' }}">{{ 'Configurado' if smtp_ready else 'Pendente' }}</b></div>
     <div class="status-row"><span>Envios</span><b class="{{ 'ok' if send_enabled else 'warn' }}">{{ 'Liberados' if send_enabled else 'Bloqueados' }}</b></div>
     <div class="status-row"><span>Material anexo</span><b class="{{ 'ok' if material else 'warn' }}">{{ material.filename if material else 'Pendente' }}</b></div>
     <div class="status-row"><span>Hoje</span><b>{{ sent_today }} / {{ daily_limit }}</b></div>
