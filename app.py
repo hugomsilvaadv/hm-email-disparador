@@ -61,7 +61,6 @@ Diretor Técnico | Advogado | Perito Judicial
 HM Perícia & Cálculos
 WhatsApp: (31) 99587-1227
 E-mail: hugo@hmpericia.com.br
-hmpericia.com.br
 
 Caso prefira não receber novos contatos da HM, basta nos avisar por este e-mail.
 """
