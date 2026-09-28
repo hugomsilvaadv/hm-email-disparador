@@ -143,29 +143,74 @@ def smtp_config_ready():
     return bool(os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASSWORD"))
 
 
-def send_via_smtp(msg):
-    smtp_host = os.environ.get("SMTP_HOST", "smtp.titan.email")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ["SMTP_USER"]
-    smtp_password = os.environ["SMTP_PASSWORD"]
+def _smtp_attempt(msg, host, port, mode):
+    smtp_user = os.environ["SMTP_USER"].strip()
+    smtp_password = os.environ["SMTP_PASSWORD"].strip()
     context = ssl.create_default_context()
-
-    if smtp_port == 465:
-        smtp = smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=20)
-    else:
-        smtp = smtplib.SMTP(smtp_host, smtp_port, timeout=20)
-        smtp.ehlo()
-        smtp.starttls(context=context)
-        smtp.ehlo()
+    smtp = None
+    stage = "conexão"
 
     try:
+        if mode == "ssl":
+            smtp = smtplib.SMTP_SSL(host, port, context=context, timeout=10)
+            stage = "EHLO"
+            smtp.ehlo()
+        else:
+            smtp = smtplib.SMTP(host, port, timeout=10)
+            stage = "EHLO"
+            smtp.ehlo()
+            stage = "STARTTLS"
+            smtp.starttls(context=context)
+            stage = "EHLO após STARTTLS"
+            smtp.ehlo()
+
+        stage = "autenticação"
         smtp.login(smtp_user, smtp_password)
+
+        stage = "envio da mensagem"
         smtp.send_message(msg)
+        return None
+
+    except TimeoutError:
+        return f"timeout durante {stage}"
+    except smtplib.SMTPAuthenticationError as exc:
+        code = getattr(exc, "smtp_code", "")
+        return f"falha de autenticação SMTP ({code})"
+    except smtplib.SMTPException as exc:
+        return f"erro SMTP durante {stage}: {exc}"
+    except OSError as exc:
+        return f"erro de rede durante {stage}: {exc}"
     finally:
-        try:
-            smtp.quit()
-        except Exception:
-            smtp.close()
+        if smtp is not None:
+            try:
+                smtp.quit()
+            except Exception:
+                try:
+                    smtp.close()
+                except Exception:
+                    pass
+
+
+def send_via_smtp(msg):
+    smtp_host = os.environ.get("SMTP_HOST", "smtp.titan.email").strip()
+    configured_port = int(os.environ.get("SMTP_PORT", "587"))
+
+    attempts = []
+    if configured_port == 465:
+        attempts.append((465, "ssl"))
+        attempts.append((587, "starttls"))
+    else:
+        attempts.append((587, "starttls"))
+        attempts.append((465, "ssl"))
+
+    errors = []
+    for port, mode in attempts:
+        error = _smtp_attempt(msg, smtp_host, port, mode)
+        if error is None:
+            return
+        errors.append(f"{port}/{mode}: {error}")
+
+    raise RuntimeError("Falha SMTP nas duas rotas — " + " | ".join(errors))
 
 
 def sent_today_count():
