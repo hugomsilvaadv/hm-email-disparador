@@ -2,6 +2,7 @@ import base64
 import csv
 import html
 import hmac
+import hashlib
 import io
 import json
 import os
@@ -481,16 +482,22 @@ def health():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     admin_user = os.environ.get("ADMIN_USER", "hugo")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "")
+    login_hash = os.environ.get("LOGIN_SHA256", "").strip().lower()
+    legacy_password = os.environ.get("ADMIN_PASSWORD", "")
     if request.method == "POST":
         supplied_user = request.form.get("username", "")
         supplied_password = request.form.get("password", "")
         valid_user = hmac.compare_digest(supplied_user, admin_user)
-        valid_password = bool(admin_password) and hmac.compare_digest(supplied_password, admin_password)
+        supplied_hash = hashlib.sha256(supplied_password.encode("utf-8")).hexdigest()
+        if login_hash:
+            valid_password = hmac.compare_digest(supplied_hash, login_hash)
+        else:
+            valid_password = bool(legacy_password) and hmac.compare_digest(supplied_password, legacy_password)
         if valid_user and valid_password:
             session["logged_in"] = True
             return redirect(request.args.get("next") or url_for("dashboard"))
-        flash("Usuário ou senha inválidos." if admin_password else "ADMIN_PASSWORD ainda não foi definido.", "danger")
+        configured = bool(login_hash or legacy_password)
+        flash("Usuário ou senha inválidos." if configured else "Credencial de login ainda não foi configurada.", "danger")
     return render_template("login.html", admin_user=admin_user)
 
 
