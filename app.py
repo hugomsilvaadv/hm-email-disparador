@@ -54,6 +54,15 @@ AJT_STATUS_OPTIONS = [
     "Não contatar",
 ]
 
+AJT_VARA_STATUS_OPTIONS = [
+    "Não solicitado",
+    "Solicitação enviada",
+    "Aguardando análise",
+    "Vinculado",
+    "Não vinculado",
+    "Não atuar",
+]
+
 AJT_DEFAULT_SUBJECT = "Disponibilidade para atuação como perito — Sistema AJ/JT"
 AJT_DEFAULT_BODY = """À Secretaria da {unit},
 
@@ -188,6 +197,48 @@ AJT_TRT15_CONTACT_GROUPS = [
 
 SP_INTEREST_SCOPE = "Todos os municípios de SP informados no cadastro AJ/JT do usuário"
 
+TRT15_SECRETARIAT_CITIES = {
+    "Araraquara": ["Araraquara", "Bebedouro", "Cravinhos", "Jaboticabal", "Matão", "Mococa", "Pirassununga", "Porto Ferreira", "São Carlos", "São José do Rio Pardo", "Taquaritinga"],
+    "Bauru": ["Avaré", "Bauru", "Botucatu", "Itápolis", "Garça", "Jaú", "Lençóis Paulista", "Marília", "Ourinhos", "Pederneiras", "Santa Cruz do Rio Pardo"],
+    "Campinas": ["Campinas", "Mogi Mirim", "Paulínia"],
+    "Jundiaí": ["Amparo", "Atibaia", "Bragança Paulista", "Campo Limpo Paulista", "Capivari", "Indaiatuba", "Itapira", "Itatiba", "Itu", "Jundiaí", "Salto"],
+    "Piracicaba": ["Americana", "Araras", "Hortolândia", "Leme", "Limeira", "Mogi Guaçu", "Piracicaba", "Rio Claro", "Santa Bárbara D'Oeste", "São João da Boa Vista", "Sumaré"],
+    "Presidente Prudente": ["Adamantina", "Andradina", "Araçatuba", "Assis", "Birigui", "Dracena", "Lins", "Penápolis", "Presidente Prudente", "Presidente Venceslau", "Teodoro Sampaio", "Tupã"],
+    "Ribeirão Preto": ["Batatais", "Cajuru", "Franca", "Ituverava", "Orlândia", "Ribeirão Preto", "São Joaquim da Barra", "Sertãozinho"],
+    "São José do Rio Preto": ["Barretos", "Catanduva", "Fernandópolis", "Jales", "José Bonifácio", "Olímpia", "São José do Rio Preto", "Tanabi", "Votuporanga"],
+    "São José dos Campos": ["Aparecida", "Caçapava", "Caraguatatuba", "Cruzeiro", "Guaratinguetá", "Jacareí", "Lorena", "Pindamonhangaba", "São José dos Campos", "São Sebastião", "Taubaté", "Ubatuba"],
+    "Sorocaba": ["Capão Bonito", "Itanhaém", "Itapetininga", "Itapeva", "Itararé", "Piedade", "Registro", "São Roque", "Sorocaba", "Tatuí", "Tietê"],
+}
+
+TRT15_MULTI_VARA_COUNTS = {
+    "Americana": 2,
+    "Araçatuba": 3,
+    "Araraquara": 3,
+    "Assis": 2,
+    "Bauru": 4,
+    "Campinas": 12,
+    "Catanduva": 2,
+    "Franca": 2,
+    "Jaboticabal": 2,
+    "Jacareí": 2,
+    "Jaú": 2,
+    "Jundiaí": 5,
+    "Lençóis Paulista": 2,
+    "Limeira": 2,
+    "Marília": 2,
+    "Paulínia": 2,
+    "Piracicaba": 3,
+    "Presidente Prudente": 2,
+    "Ribeirão Preto": 6,
+    "São Carlos": 2,
+    "São José do Rio Preto": 4,
+    "São José dos Campos": 5,
+    "Sertãozinho": 2,
+    "Sorocaba": 4,
+    "Taubaté": 2,
+}
+
+
 TRT2_MUNICIPALITIES = [
     "Arujá", "Barueri", "Bertioga", "Biritiba Mirim", "Caieiras", "Cajamar",
     "Carapicuíba", "Cotia", "Cubatão", "Diadema", "Embu das Artes", "Embu-Guaçu",
@@ -281,6 +332,20 @@ class AjtCurriculum(db.Model):
     mimetype = db.Column(db.String(120), nullable=False, default="application/pdf")
     data = db.Column(db.LargeBinary, nullable=False)
     uploaded_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class AjtVaraLink(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tribunal = db.Column(db.String(80), default="TRT-15", index=True)
+    secretariat = db.Column(db.String(120), nullable=False, index=True)
+    contact_email = db.Column(db.String(240), nullable=False, index=True)
+    city = db.Column(db.String(120), nullable=False, index=True)
+    vara = db.Column(db.String(260), nullable=False, unique=True, index=True)
+    status = db.Column(db.String(80), default="Não solicitado", index=True)
+    requested_at = db.Column(db.DateTime(timezone=True))
+    linked_at = db.Column(db.DateTime(timezone=True))
+    notes = db.Column(db.Text)
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 batch_state = {"running": False, "total": 0, "done": 0, "errors": 0, "started_at": None}
@@ -570,6 +635,76 @@ def seed_initial_ajt_units():
         db.session.commit()
 
 
+def _trt15_contact_for(secretariat):
+    for item in AJT_TRT15_CONTACT_GROUPS:
+        if item["city"] == secretariat:
+            return item["email"]
+    return ""
+
+
+def _vara_names_for_city(city):
+    count = TRT15_MULTI_VARA_COUNTS.get(city, 1)
+    if count == 1:
+        return [f"Vara do Trabalho de {city}"]
+    return [f"{number}ª Vara do Trabalho de {city}" for number in range(1, count + 1)]
+
+
+def seed_trt15_vara_links():
+    changed = False
+    legacy_map = {
+        "Vinculado": "Vinculado",
+        "Vinculação solicitada": "Aguardando análise",
+        "Apresentação enviada": "Solicitação enviada",
+        "Acusou recebimento": "Aguardando análise",
+    }
+    for secretariat, cities in TRT15_SECRETARIAT_CITIES.items():
+        contact_email = _trt15_contact_for(secretariat)
+        for city in cities:
+            for vara_name in _vara_names_for_city(city):
+                existing = AjtVaraLink.query.filter_by(vara=vara_name).first()
+                if existing:
+                    existing.secretariat = secretariat
+                    existing.contact_email = contact_email
+                    existing.city = city
+                    continue
+                legacy = AjtUnit.query.filter_by(tribunal="TRT-15", unit=vara_name).first()
+                status = legacy_map.get(legacy.status, "Não solicitado") if legacy else "Não solicitado"
+                row = AjtVaraLink(
+                    tribunal="TRT-15",
+                    secretariat=secretariat,
+                    contact_email=contact_email,
+                    city=city,
+                    vara=vara_name,
+                    status=status,
+                )
+                if status in {"Solicitação enviada", "Aguardando análise", "Vinculado"}:
+                    row.requested_at = legacy.last_contact if legacy else datetime.now(timezone.utc)
+                if status == "Vinculado":
+                    row.linked_at = legacy.last_contact if legacy else datetime.now(timezone.utc)
+                db.session.add(row)
+                changed = True
+    if changed:
+        db.session.commit()
+
+
+def trt15_secretariat_overview():
+    overview = []
+    for secretariat in TRT15_SECRETARIAT_CITIES:
+        rows = AjtVaraLink.query.filter_by(secretariat=secretariat).order_by(
+            AjtVaraLink.city.asc(), AjtVaraLink.vara.asc()
+        ).all()
+        overview.append({
+            "name": secretariat,
+            "email": _trt15_contact_for(secretariat),
+            "varas": rows,
+            "total": len(rows),
+            "linked": sum(1 for row in rows if row.status == "Vinculado"),
+            "pending": sum(1 for row in rows if row.status in {"Solicitação enviada", "Aguardando análise"}),
+            "not_requested": sum(1 for row in rows if row.status == "Não solicitado"),
+        })
+    return overview
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "service": "hm-email-disparador"}, 200
@@ -807,6 +942,100 @@ def ajt_units():
     )
 
 
+@app.get("/ajt/trt15")
+@login_required
+def ajt_trt15_links():
+    secretariats = trt15_secretariat_overview()
+    total_varas = AjtVaraLink.query.filter_by(tribunal="TRT-15").count()
+    linked_varas = AjtVaraLink.query.filter_by(tribunal="TRT-15", status="Vinculado").count()
+    requested_varas = AjtVaraLink.query.filter(
+        AjtVaraLink.tribunal == "TRT-15",
+        AjtVaraLink.status.in_(["Solicitação enviada", "Aguardando análise", "Vinculado", "Não vinculado"]),
+    ).count()
+    return render_template(
+        "ajt_trt15.html",
+        secretariats=secretariats,
+        status_options=AJT_VARA_STATUS_OPTIONS,
+        total_varas=total_varas,
+        linked_varas=linked_varas,
+        requested_varas=requested_varas,
+    )
+
+
+@app.post("/ajt/trt15/vara/<int:vara_id>/status")
+@login_required
+def ajt_trt15_update_vara(vara_id):
+    vara = db.get_or_404(AjtVaraLink, vara_id)
+    new_status = request.form.get("status", "")
+    if new_status in AJT_VARA_STATUS_OPTIONS:
+        old_status = vara.status
+        vara.status = new_status
+        vara.updated_at = datetime.now(timezone.utc)
+        if new_status in {"Solicitação enviada", "Aguardando análise", "Vinculado", "Não vinculado"} and not vara.requested_at:
+            vara.requested_at = datetime.now(timezone.utc)
+        if new_status == "Vinculado" and not vara.linked_at:
+            vara.linked_at = datetime.now(timezone.utc)
+        elif old_status == "Vinculado" and new_status != "Vinculado":
+            vara.linked_at = None
+        db.session.commit()
+        flash(f"Status atualizado: {vara.vara}.", "success")
+    return redirect(request.referrer or url_for("ajt_trt15_links"))
+
+
+@app.post("/ajt/trt15/secretaria/<secretariat>/marcar-enviado")
+@login_required
+def ajt_trt15_mark_sent(secretariat):
+    rows = AjtVaraLink.query.filter_by(secretariat=secretariat, status="Não solicitado").all()
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        row.status = "Solicitação enviada"
+        row.requested_at = now
+        row.updated_at = now
+    db.session.commit()
+    flash(f"Solicitação registrada para {len(rows)} Vara(s) da Secretaria Conjunta de {secretariat}.", "success")
+    return redirect(url_for("ajt_trt15_links") + f"#sec-{secretariat}")
+
+
+@app.get("/ajt/trt15/secretaria/<secretariat>/preview")
+@login_required
+def ajt_trt15_secretariat_preview(secretariat):
+    if secretariat not in TRT15_SECRETARIAT_CITIES:
+        return "Secretaria não encontrada.", 404
+    rows = AjtVaraLink.query.filter_by(secretariat=secretariat).filter(
+        AjtVaraLink.status != "Não atuar"
+    ).order_by(AjtVaraLink.city.asc(), AjtVaraLink.vara.asc()).all()
+    contact_email = _trt15_contact_for(secretariat)
+    subject = "Solicitação de vinculação para atuação pericial — Sistema AJ/JT"
+    vara_list = "\n".join(f"- {row.vara}" for row in rows)
+    body = f"""À Divisão de Atendimento e Administração da Secretaria Conjunta de {secretariat},
+
+Prezados(as),
+
+Meu nome é Hugo Mendes. Sou profissional cadastrado no Sistema AJ/JT da Justiça do Trabalho e atuo com cálculos trabalhistas, liquidação de sentença, conferência de cálculos e PJe-Calc.
+
+Manifesto meu interesse e disponibilidade para atuação como perito calculista perante as Varas do Trabalho abaixo relacionadas e, se cabível, solicito o encaminhamento do pedido de vinculação às respectivas unidades:
+
+{vara_list}
+
+Encaminho meu currículo pericial para apreciação e permaneço à disposição para quaisquer informações adicionais.
+
+Atenciosamente,
+Hugo Mendes
+Perito cadastrado no Sistema AJ/JT
+HM Perícia & Cálculos
+E-mail: hugo@hmpericia.com.br
+"""
+    return render_template(
+        "ajt_secretariat_preview.html",
+        secretariat=secretariat,
+        contact_email=contact_email,
+        subject=subject,
+        body=body,
+        varas=rows,
+        curriculum=AjtCurriculum.query.order_by(AjtCurriculum.id.desc()).first(),
+    )
+
+
 @app.post("/ajt/<int:unit_id>/status")
 @login_required
 def ajt_update_status(unit_id):
@@ -922,6 +1151,7 @@ def test_email():
 with app.app_context():
     db.create_all()
     seed_initial_ajt_units()
+    seed_trt15_vara_links()
     seed_b64 = os.environ.get("LEADS_SEED_B64", "").strip()
     if seed_b64 and Lead.query.count() == 0:
         try:
