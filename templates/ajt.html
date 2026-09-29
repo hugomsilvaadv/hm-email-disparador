@@ -9,11 +9,17 @@
 </div>
 
 <div class="grid four">
-  <div class="card metric"><span>Unidades cadastradas</span><strong>{{ total }}</strong></div>
-  <div class="card metric"><span>Não contatadas</span><strong>{{ pending }}</strong></div>
+  <div class="card metric"><span>Registros AJ/JT</span><strong>{{ total }}</strong></div>
+  <div class="card metric"><span>Contatos únicos</span><strong>{{ unique_contacts }}</strong></div>
   <div class="card metric"><span>Vinculadas</span><strong>{{ linked }}</strong></div>
   <div class="card metric"><span>Currículo</span><strong style="font-size:18px">{{ curriculum.filename if curriculum else 'Pendente' }}</strong></div>
 </div>
+
+<section class="card top-gap">
+  <h2>Cobertura declarada — São Paulo</h2>
+  <p><strong>{{ sp_interest_scope }}</strong></p>
+  <p class="muted">TRT-15: {{ trt15_groups }} Secretarias Conjuntas oficiais cadastradas, cobrindo as Varas do interior e litoral sob a 15ª Região. Cidades da sua lista que pertencem ao TRT-2 serão tratadas em base separada para não misturar procedimentos e contatos.</p>
+</section>
 
 <div class="grid two top-gap">
   <section class="card">
@@ -59,9 +65,9 @@
 </section>
 
 <form class="filters card top-gap" method="get">
-  <input name="q" placeholder="Buscar Vara, cidade ou e-mail" value="{{ request.args.get('q','') }}">
+  <input name="q" placeholder="Buscar Vara, Secretaria, cidade ou e-mail" value="{{ request.args.get('q','') }}">
   <select name="tribunal"><option value="">Todos os TRTs</option>{% for t in tribunals %}<option value="{{ t }}" {% if request.args.get('tribunal')==t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
-  <select name="city"><option value="">Todas as cidades</option>{% for c in cities %}<option value="{{ c }}" {% if request.args.get('city')==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+  <select name="status"><option value="">Todos os status</option>{% for s in status_options %}<option value="{{ s }}" {% if request.args.get('status')==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
   <button class="btn" type="submit">Filtrar</button>
 </form>
 
@@ -74,7 +80,7 @@
   {% for unit in units %}
     <tr>
       <td><span class="pill">{{ unit.tribunal }}</span></td>
-      <td><strong>{{ unit.unit }}</strong>{% if unit.address %}<small>{{ unit.address }}</small>{% endif %}</td>
+      <td><strong>{{ unit.unit }}</strong>{% if unit.address %}<small>{{ unit.address }}</small>{% endif %}{% if unit.notes %}<small>{{ unit.notes }}</small>{% endif %}</td>
       <td>{{ unit.city }}</td>
       <td>{{ unit.email }}{% if unit.phone %}<small>{{ unit.phone }}</small>{% endif %}</td>
       <td>
@@ -99,6 +105,6 @@
 
 <div class="card top-gap">
   <h2>Regra desta fase</h2>
-  <p class="muted">Nenhum envio AJ/JT é disparado por esta tela. Primeiro cadastramos e validamos as unidades, o currículo e a mensagem; o envio controlado entra no próximo bloco.</p>
+  <p class="muted">Nenhum envio AJ/JT é disparado automaticamente. A base agora separa registros de Vara e caixas institucionais compartilhadas para evitar duplicidade. O próximo bloco habilita envio individual/controlado por contato único.</p>
 </div>
 {% endblock %}
