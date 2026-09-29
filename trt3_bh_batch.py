@@ -1,3 +1,4 @@
+# TRT-3 Belo Horizonte batch — controlled institutional dispatch
 import html
 import os
 import time
