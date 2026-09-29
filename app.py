@@ -945,6 +945,52 @@ def health():
     return {"ok": True, "service": "hm-email-disparador"}, 200
 
 
+bh_internal_batch_state = {"running": False, "started_at": None}
+
+
+@app.get("/internal/ajt/trt3/bh/start")
+def internal_ajt_trt3_bh_start():
+    expected = os.environ.get("AJT_INTERNAL_TRIGGER_TOKEN", "").strip()
+    supplied = request.args.get("token", "")
+    if not expected or not hmac.compare_digest(supplied, expected):
+        return {"ok": False, "error": "unauthorized"}, 403
+
+    if bh_internal_batch_state["running"]:
+        return {"ok": True, "started": False, "reason": "already_running"}, 200
+
+    def worker():
+        bh_internal_batch_state["running"] = True
+        bh_internal_batch_state["started_at"] = datetime.now(timezone.utc).isoformat()
+        try:
+            from trt3_bh_batch import main as run_bh_batch
+            run_bh_batch()
+        except Exception:
+            app.logger.exception("Falha no lote interno AJ/JT TRT-3 BH")
+        finally:
+            bh_internal_batch_state["running"] = False
+
+    threading.Thread(target=worker, daemon=True).start()
+    return {
+        "ok": True,
+        "started": True,
+        "scope": "TRT-3 Belo Horizonte — 48 Varas",
+    }, 202
+
+
+@app.get("/internal/ajt/trt3/bh/status")
+def internal_ajt_trt3_bh_status():
+    expected = os.environ.get("AJT_INTERNAL_TRIGGER_TOKEN", "").strip()
+    supplied = request.args.get("token", "")
+    if not expected or not hmac.compare_digest(supplied, expected):
+        return {"ok": False, "error": "unauthorized"}, 403
+
+    return {
+        "ok": True,
+        "running": bh_internal_batch_state["running"],
+        "started_at": bh_internal_batch_state["started_at"],
+    }, 200
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     admin_user = os.environ.get("ADMIN_USER", "hugo")
