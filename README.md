@@ -1,15 +1,27 @@
-# HM Perícia & Cálculos — Disparador B2B
+# Street Mall Intelligence — Originação & Prospecção
 
-Painel privado para prospecção de escritórios usando `hugo@hmpericia.com.br` via SMTP Titan.
+Versão especializada do painel de prospecção, mantida na branch \`street-mall-crm\` para não interferir no disparador da HM.
+
+## Escopo inicial
+- importar a planilha existente em XLSX pela aba **Pipeline Terrenos**;
+- consolidar imóveis em fichas individuais;
+- enriquecer testada, zoneamento, matrícula, proprietário, acessos, infraestrutura e geolocalização;
+- cadastrar múltiplos contatos por imóvel;
+- registrar interações e follow-ups;
+- filtrar por praça, prioridade, status e disponibilidade;
+- preparar e-mails individualmente;
+- enviar via Resend somente quando **SEND_ENABLED=true**.
+
+## Variáveis Railway
+- \`ADMIN_USER\`
+- \`ADMIN_PASSWORD\`
+- \`SECRET_KEY\`
+- \`DATABASE_URL\`
+- \`RESEND_API_KEY\` (quando a prospecção for liberada)
+- \`FROM_EMAIL\`
+- \`REPLY_TO\`
+- \`FROM_NAME\`
+- \`SEND_ENABLED=false\` inicialmente
 
 ## Segurança
-- Nenhuma senha fica no GitHub.
-- SMTP e senha administrativa ficam apenas nas variáveis do Railway.
-- `SEND_ENABLED=false` por padrão.
-- Envios individuais, com limite diário e intervalo mínimo.
-- A base de leads e o histórico ficam no PostgreSQL do Railway.
-
-## Railway
-Variáveis esperadas: `ADMIN_USER`, `ADMIN_PASSWORD`, `SECRET_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `FROM_NAME`, `DAILY_LIMIT`, `MIN_INTERVAL_SECONDS`, `SEND_ENABLED` e `DATABASE_URL`.
-
-Antes de liberar a campanha, use a tela **Teste SMTP** e envie apenas para um endereço seu.
+O módulo de e-mail nasce bloqueado. A base e a pesquisa funcionam normalmente sem configurar remetente ou liberar disparos.
