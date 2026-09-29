@@ -44,6 +44,36 @@ STATUS_OPTIONS = [
     "Erro",
 ]
 
+AJT_STATUS_OPTIONS = [
+    "Não contatado",
+    "Apresentação enviada",
+    "Acusou recebimento",
+    "Vinculação solicitada",
+    "Vinculado",
+    "Sem interesse",
+    "Não contatar",
+]
+
+AJT_DEFAULT_SUBJECT = "Disponibilidade para atuação como perito — Sistema AJ/JT"
+AJT_DEFAULT_BODY = """À Secretaria da {unit},
+
+Prezados(as),
+
+Meu nome é Hugo Mendes. Sou profissional cadastrado no Sistema AJ/JT da Justiça do Trabalho e atuo com cálculos trabalhistas, liquidação de sentença, conferência de cálculos e PJe-Calc.
+
+Gostaria de apresentar minha disponibilidade para atuação como perito nesta unidade e, se cabível, solicitar minha vinculação à Vara para futuras nomeações, conforme os procedimentos aplicáveis.
+
+Encaminho meu currículo pericial para apreciação.
+
+Permaneço à disposição para quaisquer informações adicionais.
+
+Atenciosamente,
+Hugo Mendes
+Perito cadastrado no Sistema AJ/JT
+HM Perícia & Cálculos
+E-mail: hugo@hmpericia.com.br
+"""
+
 DEFAULT_SUBJECT = "Apoio técnico em cálculos trabalhistas"
 DEFAULT_BODY = """Olá, equipe do {office}, tudo bem?
 
@@ -101,6 +131,29 @@ class SendLog(db.Model):
     result = db.Column(db.String(40), nullable=False)
     detail = db.Column(db.Text)
     lead = db.relationship("Lead")
+
+
+class AjtUnit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tribunal = db.Column(db.String(80), default="TRT-15", index=True)
+    city = db.Column(db.String(120), index=True)
+    unit = db.Column(db.String(260), nullable=False)
+    email = db.Column(db.String(240), nullable=False, index=True)
+    phone = db.Column(db.String(100))
+    address = db.Column(db.String(500))
+    source_url = db.Column(db.String(500))
+    status = db.Column(db.String(80), default="Não contatado", index=True)
+    last_contact = db.Column(db.DateTime(timezone=True))
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class AjtCurriculum(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    mimetype = db.Column(db.String(120), nullable=False, default="application/pdf")
+    data = db.Column(db.LargeBinary, nullable=False)
+    uploaded_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 batch_state = {"running": False, "total": 0, "done": 0, "errors": 0, "started_at": None}
@@ -328,6 +381,50 @@ def import_lead_rows(rows):
     return imported, updated, skipped
 
 
+def import_ajt_rows(rows):
+    imported = 0
+    updated = 0
+    skipped = 0
+
+    for row in rows:
+        unit = (row.get("Vara") or row.get("Unidade") or row.get("unit") or "").strip()
+        email_addr = (row.get("E-mail") or row.get("Email") or row.get("email") or "").strip().lower()
+        if not unit or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email_addr):
+            skipped += 1
+            continue
+
+        tribunal = (row.get("TRT") or row.get("Tribunal") or row.get("tribunal") or "TRT-15").strip()
+        existing = AjtUnit.query.filter(
+            db.func.lower(AjtUnit.email) == email_addr,
+            AjtUnit.unit == unit,
+        ).first()
+        payload = {
+            "tribunal": tribunal,
+            "city": (row.get("Cidade") or row.get("city") or "").strip(),
+            "unit": unit,
+            "email": email_addr,
+            "phone": (row.get("Telefone") or row.get("phone") or "").strip(),
+            "address": (row.get("Endereço") or row.get("address") or "").strip(),
+            "source_url": (row.get("Fonte") or row.get("Fonte pública") or row.get("source_url") or "").strip(),
+            "notes": (row.get("Observações") or row.get("notes") or "").strip(),
+        }
+        if existing:
+            for key, value in payload.items():
+                if value:
+                    setattr(existing, key, value)
+            updated += 1
+        else:
+            db.session.add(AjtUnit(**payload, status="Não contatado"))
+            imported += 1
+
+    db.session.commit()
+    return imported, updated, skipped
+
+
+def render_ajt_body(unit):
+    return AJT_DEFAULT_BODY.format(unit=unit.unit)
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "service": "hm-email-disparador"}, 200
@@ -474,6 +571,138 @@ def send_selected():
 
     flash(f"Lote de {len(ids)} e-mails iniciado. Os envios serão individuais e espaçados.", "success")
     return redirect(url_for("dashboard"))
+
+
+@app.route("/ajt", methods=["GET", "POST"])
+@login_required
+def ajt_units():
+    if request.method == "POST":
+        action = request.form.get("action", "import")
+        if action == "add":
+            unit_name = request.form.get("unit", "").strip()
+            email_addr = request.form.get("email", "").strip().lower()
+            if not unit_name or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email_addr):
+                flash("Informe a unidade e um e-mail válido.", "danger")
+            else:
+                existing = AjtUnit.query.filter(
+                    db.func.lower(AjtUnit.email) == email_addr,
+                    AjtUnit.unit == unit_name,
+                ).first()
+                if existing:
+                    flash("Essa unidade já está cadastrada com esse e-mail.", "warning")
+                else:
+                    db.session.add(AjtUnit(
+                        tribunal=request.form.get("tribunal", "TRT-15").strip() or "TRT-15",
+                        city=request.form.get("city", "").strip(),
+                        unit=unit_name,
+                        email=email_addr,
+                        phone=request.form.get("phone", "").strip(),
+                        address=request.form.get("address", "").strip(),
+                        source_url=request.form.get("source_url", "").strip(),
+                        notes=request.form.get("notes", "").strip(),
+                    ))
+                    db.session.commit()
+                    flash("Unidade AJ/JT cadastrada.", "success")
+            return redirect(url_for("ajt_units"))
+
+        file = request.files.get("file")
+        if not file or not file.filename:
+            flash("Selecione um CSV de unidades.", "warning")
+        elif not file.filename.lower().endswith(".csv"):
+            flash("A importação aceita arquivo CSV.", "danger")
+        else:
+            try:
+                raw = file.read().decode("utf-8-sig")
+                imported, updated, skipped = import_ajt_rows(csv.DictReader(io.StringIO(raw)))
+                flash(
+                    f"Base AJ/JT atualizada: {imported} nova(s), {updated} atualizada(s), {skipped} ignorada(s).",
+                    "success",
+                )
+            except Exception as exc:
+                flash(f"Falha na importação AJ/JT: {exc}", "danger")
+        return redirect(url_for("ajt_units"))
+
+    q = AjtUnit.query
+    status = request.args.get("status", "")
+    tribunal = request.args.get("tribunal", "")
+    city = request.args.get("city", "")
+    search = request.args.get("q", "").strip()
+    if status:
+        q = q.filter(AjtUnit.status == status)
+    if tribunal:
+        q = q.filter(AjtUnit.tribunal == tribunal)
+    if city:
+        q = q.filter(AjtUnit.city == city)
+    if search:
+        term = f"%{search}%"
+        q = q.filter(db.or_(AjtUnit.unit.ilike(term), AjtUnit.city.ilike(term), AjtUnit.email.ilike(term)))
+
+    rows = q.order_by(AjtUnit.tribunal.asc(), AjtUnit.city.asc(), AjtUnit.unit.asc()).all()
+    tribunals = [r[0] for r in db.session.query(AjtUnit.tribunal).distinct().order_by(AjtUnit.tribunal).all() if r[0]]
+    cities = [r[0] for r in db.session.query(AjtUnit.city).distinct().order_by(AjtUnit.city).all() if r[0]]
+    curriculum = AjtCurriculum.query.order_by(AjtCurriculum.id.desc()).first()
+    return render_template(
+        "ajt.html",
+        units=rows,
+        status_options=AJT_STATUS_OPTIONS,
+        tribunals=tribunals,
+        cities=cities,
+        curriculum=curriculum,
+        total=AjtUnit.query.count(),
+        pending=AjtUnit.query.filter_by(status="Não contatado").count(),
+        linked=AjtUnit.query.filter_by(status="Vinculado").count(),
+    )
+
+
+@app.post("/ajt/<int:unit_id>/status")
+@login_required
+def ajt_update_status(unit_id):
+    unit = db.get_or_404(AjtUnit, unit_id)
+    new_status = request.form.get("status", "")
+    if new_status in AJT_STATUS_OPTIONS:
+        unit.status = new_status
+        if new_status in {"Apresentação enviada", "Acusou recebimento", "Vinculação solicitada", "Vinculado"}:
+            unit.last_contact = datetime.now(timezone.utc)
+        db.session.commit()
+        flash("Status AJ/JT atualizado.", "success")
+    return redirect(request.referrer or url_for("ajt_units"))
+
+
+@app.get("/ajt/<int:unit_id>/preview")
+@login_required
+def ajt_preview(unit_id):
+    unit = db.get_or_404(AjtUnit, unit_id)
+    return render_template(
+        "ajt_preview.html",
+        unit=unit,
+        subject=AJT_DEFAULT_SUBJECT,
+        body=render_ajt_body(unit),
+        curriculum=AjtCurriculum.query.order_by(AjtCurriculum.id.desc()).first(),
+    )
+
+
+@app.route("/ajt/curriculo", methods=["POST"])
+@login_required
+def ajt_curriculum():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        flash("Selecione o currículo pericial em PDF.", "warning")
+    elif not file.filename.lower().endswith(".pdf"):
+        flash("O currículo AJ/JT deve ser enviado em PDF.", "danger")
+    else:
+        data = file.read()
+        if len(data) > 5 * 1024 * 1024:
+            flash("O currículo deve ter no máximo 5 MB.", "danger")
+        else:
+            AjtCurriculum.query.delete()
+            db.session.add(AjtCurriculum(
+                filename=file.filename.strip(),
+                mimetype="application/pdf",
+                data=data,
+            ))
+            db.session.commit()
+            flash("Currículo pericial AJ/JT salvo separadamente do material comercial.", "success")
+    return redirect(url_for("ajt_units"))
 
 
 @app.route("/material", methods=["GET", "POST"])
