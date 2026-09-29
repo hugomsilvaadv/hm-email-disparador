@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Histórico de Envios · HM{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Histórico de Envios</h1>
+    <p>Prospecção comercial e comunicações AJ/JT em uma única tela.</p>
+  </div>
+</div>
+
+<div class="grid four">
+  <div class="card metric"><span>Total enviados</span><strong>{{ total_sent }}</strong></div>
+  <div class="card metric"><span>Prospecção HM</span><strong>{{ commercial_sent }}</strong></div>
+  <div class="card metric"><span>AJ/JT</span><strong>{{ ajt_sent }}</strong></div>
+  <div class="card metric"><span>Erros registrados</span><strong>{{ total_errors }}</strong></div>
+</div>
+
+<form class="filters card top-gap" method="get">
+  <input name="q" placeholder="Buscar destinatário, escritório, TRT ou Secretaria" value="{{ request.args.get('q','') }}">
+  <select name="tipo">
+    <option value="">Todos os tipos</option>
+    <option value="comercial" {% if request.args.get('tipo')=='comercial' %}selected{% endif %}>Prospecção HM</option>
+    <option value="ajt" {% if request.args.get('tipo')=='ajt' %}selected{% endif %}>AJ/JT</option>
+  </select>
+  <select name="status">
+    <option value="">Todos os status</option>
+    <option value="sent" {% if request.args.get('status')=='sent' %}selected{% endif %}>Enviado</option>
+    <option value="error" {% if request.args.get('status')=='error' %}selected{% endif %}>Erro</option>
+  </select>
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+<div class="table-wrap top-gap">
+  <table>
+    <thead>
+      <tr>
+        <th>Data / hora</th>
+        <th>Tipo</th>
+        <th>Destino</th>
+        <th>E-mail</th>
+        <th>Assunto</th>
+        <th>Status</th>
+        <th>Rastreio</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in entries %}
+      <tr>
+        <td>
+          <strong>{{ row.sent_at_local.strftime('%d/%m/%Y') if row.sent_at_local else '—' }}</strong>
+          <small>{{ row.sent_at_local.strftime('%H:%M:%S') if row.sent_at_local else '' }}</small>
+        </td>
+        <td>
+          <span class="pill">{{ row.type_label }}</span>
+          {% if row.tribunal %}<small>{{ row.tribunal }}</small>{% endif %}
+        </td>
+        <td><strong>{{ row.source }}</strong></td>
+        <td>{{ row.recipient }}</td>
+        <td>{{ row.subject }}</td>
+        <td>
+          {% if row.result == 'sent' %}
+            <b class="ok">Enviado</b>
+          {% else %}
+            <b class="warn">Erro</b>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.detail %}
+            <small>{{ row.detail }}</small>
+          {% else %}
+            <span class="muted">Registro interno</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7">Nenhum envio encontrado com os filtros atuais.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card top-gap">
+  <h2>Como usar</h2>
+  <p class="muted">“Enviado” significa que o provedor aceitou o disparo e o sistema gravou o envio. Nos novos envios, quando disponível, o ID da Resend também aparece na coluna de rastreio. Erros ficam registrados com o motivo técnico para facilitar a conferência.</p>
+</div>
+{% endblock %}
