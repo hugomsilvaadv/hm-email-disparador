@@ -93,6 +93,101 @@ AJT_INITIAL_UNITS = [
     {"tribunal":"TRT-15","city":"São Carlos","unit":"2ª Vara do Trabalho de São Carlos","email":"saj.2vt.saocarlos@trt15.jus.br","address":"R. José Bonifácio, 888 - São Carlos/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
 ]
 
+AJT_TRT15_CONTACT_GROUPS = [
+    {
+        "tribunal": "TRT-15",
+        "city": "Araraquara",
+        "unit": "Secretaria Conjunta TRT-15 — Araraquara",
+        "email": "daaararaquara.scararaquara@trt15.jus.br",
+        "address": "Avenida José Bonifácio, 176 - Araraquara/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Araraquara, Bebedouro, Cravinhos, Jaboticabal, Matão, Mococa, Pirassununga, Porto Ferreira, São Carlos, São José do Rio Pardo e Taquaritinga."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "Bauru",
+        "unit": "Secretaria Conjunta TRT-15 — Bauru",
+        "email": "daabauru.scbauru@trt15.jus.br",
+        "address": "Rua Xingu, 4-44 - Alto Higienópolis - Bauru/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Avaré, Bauru, Botucatu, Itápolis, Garça, Jaú, Lençóis Paulista, Marília, Ourinhos, Pederneiras e Santa Cruz do Rio Pardo."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "Campinas",
+        "unit": "Secretaria Conjunta TRT-15 — Campinas",
+        "email": "daacampinas.sccampinas@trt15.jus.br",
+        "address": "Avenida José de Souza Campos, 422 - Cambuí - Campinas/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Campinas, Mogi Mirim e Paulínia."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "Jundiaí",
+        "unit": "Secretaria Conjunta TRT-15 — Jundiaí",
+        "email": "daajundiai.scjundiai@trt15.jus.br",
+        "address": "Avenida Carlos Salles Block, 56 - Anhangabaú - Jundiaí/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Amparo, Atibaia, Bragança Paulista, Campo Limpo Paulista, Capivari, Indaiatuba, Itapira, Itatiba, Itu, Jundiaí e Salto."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "Piracicaba",
+        "unit": "Secretaria Conjunta TRT-15 — Piracicaba",
+        "email": "daapiracicaba.scpiracicaba@trt15.jus.br",
+        "address": "Rua João Pedro Corrêa, 810 - Piracicaba/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Americana, Araras, Hortolândia, Leme, Limeira, Mogi Guaçu, Piracicaba, Rio Claro, Santa Bárbara d'Oeste, São João da Boa Vista e Sumaré."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "Presidente Prudente",
+        "unit": "Secretaria Conjunta TRT-15 — Presidente Prudente",
+        "email": "daapprudente.scpprudente@trt15.jus.br",
+        "address": "Avenida Quatorze de Setembro, 1080 - Parque do Povo - Presidente Prudente/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Adamantina, Andradina, Araçatuba, Assis, Birigui, Dracena, Lins, Penápolis, Presidente Prudente, Presidente Venceslau, Teodoro Sampaio e Tupã."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "Ribeirão Preto",
+        "unit": "Secretaria Conjunta TRT-15 — Ribeirão Preto",
+        "email": "daaribeiraopreto.scribeiraopreto@trt15.jus.br",
+        "address": "Rua Afonso Taranto, 105 - Nova Ribeirania - Ribeirão Preto/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Batatais, Cajuru, Franca, Ituverava, Orlândia, Ribeirão Preto, São Joaquim da Barra e Sertãozinho."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "São José do Rio Preto",
+        "unit": "Secretaria Conjunta TRT-15 — São José do Rio Preto",
+        "email": "daasjrp.scsjriopreto@trt15.jus.br",
+        "address": "Avenida José Munia, 5500 - Chácara Municipal - São José do Rio Preto/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Barretos, Catanduva, Fernandópolis, Jales, José Bonifácio, Olímpia, São José do Rio Preto, Tanabi e Votuporanga."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "São José dos Campos",
+        "unit": "Secretaria Conjunta TRT-15 — São José dos Campos",
+        "email": "daasjcampos.scsjcampos@trt15.jus.br",
+        "address": "Rua Juiz David Barrilli, 85 - Parque Residencial Aquarius - São José dos Campos/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Aparecida, Caçapava, Caraguatatuba, Cruzeiro, Guaratinguetá, Jacareí, Lorena, Pindamonhangaba, São José dos Campos, São Sebastião, Taubaté e Ubatuba."
+    },
+    {
+        "tribunal": "TRT-15",
+        "city": "Sorocaba",
+        "unit": "Secretaria Conjunta TRT-15 — Sorocaba",
+        "email": "daasorocaba.scsorocaba@trt15.jus.br",
+        "address": "Rua Ministro Coqueijo Costa, 61 - Alto da Boa Vista - Sorocaba/SP",
+        "source_url": "https://trt15.jus.br/balcao-virtual-1grau",
+        "notes": "Cobre as Varas de Capão Bonito, Itanhaém, Itapetininga, Itapeva, Itararé, Piedade, Registro, São Roque, Sorocaba, Tatuí e Tietê."
+    },
+]
+
+SP_INTEREST_SCOPE = "Todos os municípios de SP informados no cadastro AJ/JT do usuário"
+
 DEFAULT_SUBJECT = "Apoio técnico em cálculos trabalhistas"
 DEFAULT_BODY = """Olá, equipe do {office}, tudo bem?
 
@@ -445,11 +540,21 @@ def render_ajt_body(unit):
 
 
 def seed_initial_ajt_units():
-    if AjtUnit.query.count() > 0:
-        return
-    for item in AJT_INITIAL_UNITS:
+    seeded = 0
+    for item in AJT_INITIAL_UNITS + AJT_TRT15_CONTACT_GROUPS:
+        existing = AjtUnit.query.filter(
+            AjtUnit.unit == item["unit"],
+            db.func.lower(AjtUnit.email) == item["email"].lower(),
+        ).first()
+        if existing:
+            for key, value in item.items():
+                if value:
+                    setattr(existing, key, value)
+            continue
         db.session.add(AjtUnit(**item, status="Não contatado"))
-    db.session.commit()
+        seeded += 1
+    if seeded:
+        db.session.commit()
 
 
 @app.get("/health")
@@ -678,6 +783,12 @@ def ajt_units():
         total=AjtUnit.query.count(),
         pending=AjtUnit.query.filter_by(status="Não contatado").count(),
         linked=AjtUnit.query.filter_by(status="Vinculado").count(),
+        unique_contacts=db.session.query(db.func.lower(AjtUnit.email)).filter(AjtUnit.email != "").distinct().count(),
+        trt15_groups=AjtUnit.query.filter(
+            AjtUnit.tribunal == "TRT-15",
+            AjtUnit.unit.like("Secretaria Conjunta TRT-15%")
+        ).count(),
+        sp_interest_scope=SP_INTEREST_SCOPE,
     )
 
 
