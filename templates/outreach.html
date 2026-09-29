@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Prospecção · Street Mall{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Prospecção por e-mail</h1><p>Contatos com endereço eletrônico pronto para abordagem individual e rastreada.</p></div>
+</div>
+<div class="notice {{ 'okbox' if send_enabled and resend_ready else 'warnbox' }}">
+  <strong>{{ 'Envio operacional' if send_enabled and resend_ready else 'Envio ainda bloqueado' }}</strong>
+  <span>{% if not resend_ready %}Falta configurar RESEND_API_KEY/FROM_EMAIL do projeto.{% elif not send_enabled %}A infraestrutura está pronta, mas SEND_ENABLED continua false por segurança.{% else %}Os envios individuais estão liberados.{% endif %}</span>
+</div>
+<div class="table-wrap top-gap">
+<table>
+  <thead><tr><th>Contato</th><th>Praça</th><th>Imóvel</th><th>Prioridade</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for c in contacts %}
+    <tr>
+      <td><strong>{{ c.name or c.company or c.email }}</strong><small>{{ c.email }}</small></td>
+      <td>{{ c.property.display_city }}</td>
+      <td>{{ c.property.address }}</td>
+      <td><span class="pill">{{ c.property.priority }}</span></td>
+      <td>{{ c.status }}</td>
+      <td><a class="btn small" href="{{ url_for('outreach_preview', contact_id=c.id) }}">Preparar</a></td>
+    </tr>
+  {% else %}<tr><td colspan="6" class="empty">Nenhum contato com e-mail cadastrado ainda.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
