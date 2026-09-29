@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}AJ/JT · HM Disparador{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Prospecção AJ/JT</h1>
+    <p>Controle institucional de Varas, currículo pericial e acompanhamento de vinculações.</p>
+  </div>
+</div>
+
+<div class="grid four">
+  <div class="card metric"><span>Unidades cadastradas</span><strong>{{ total }}</strong></div>
+  <div class="card metric"><span>Não contatadas</span><strong>{{ pending }}</strong></div>
+  <div class="card metric"><span>Vinculadas</span><strong>{{ linked }}</strong></div>
+  <div class="card metric"><span>Currículo</span><strong style="font-size:18px">{{ curriculum.filename if curriculum else 'Pendente' }}</strong></div>
+</div>
+
+<div class="grid two top-gap">
+  <section class="card">
+    <h2>Currículo pericial</h2>
+    <p class="muted">Arquivo separado do material comercial da HM. Nesta etapa ele não é enviado automaticamente.</p>
+    <form method="post" action="{{ url_for('ajt_curriculum') }}" enctype="multipart/form-data">
+      <label>PDF do currículo
+        <input type="file" name="file" accept=".pdf,application/pdf" required>
+      </label>
+      <button class="btn primary" type="submit">Salvar currículo AJ/JT</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Importar base oficial</h2>
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="import">
+      <label>CSV de Varas / unidades
+        <input type="file" name="file" accept=".csv" required>
+      </label>
+      <button class="btn" type="submit">Importar CSV</button>
+    </form>
+    <p class="muted">Colunas aceitas: TRT, Cidade, Vara/Unidade, E-mail, Telefone, Endereço, Fonte e Observações.</p>
+  </section>
+</div>
+
+<section class="card top-gap">
+  <h2>Adicionar unidade manualmente</h2>
+  <form method="post">
+    <input type="hidden" name="action" value="add">
+    <div class="grid two">
+      <label>TRT<input name="tribunal" value="TRT-15" required></label>
+      <label>Cidade<input name="city" placeholder="Ex.: Ribeirão Preto"></label>
+      <label>Vara / Unidade<input name="unit" placeholder="Ex.: 1ª Vara do Trabalho de Ribeirão Preto" required></label>
+      <label>E-mail oficial<input name="email" type="email" placeholder="vara@trt15.jus.br" required></label>
+      <label>Telefone<input name="phone"></label>
+      <label>Fonte oficial<input name="source_url" placeholder="Página oficial do Tribunal"></label>
+      <label>Endereço<input name="address"></label>
+      <label>Observações<input name="notes"></label>
+    </div>
+    <div class="actions"><button class="btn primary" type="submit">Cadastrar unidade</button></div>
+  </form>
+</section>
+
+<form class="filters card top-gap" method="get">
+  <input name="q" placeholder="Buscar Vara, cidade ou e-mail" value="{{ request.args.get('q','') }}">
+  <select name="tribunal"><option value="">Todos os TRTs</option>{% for t in tribunals %}<option value="{{ t }}" {% if request.args.get('tribunal')==t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+  <select name="city"><option value="">Todas as cidades</option>{% for c in cities %}<option value="{{ c }}" {% if request.args.get('city')==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>TRT</th><th>Unidade</th><th>Cidade</th><th>E-mail</th><th>Status</th><th>Último contato</th><th>Ações</th></tr>
+  </thead>
+  <tbody>
+  {% for unit in units %}
+    <tr>
+      <td><span class="pill">{{ unit.tribunal }}</span></td>
+      <td><strong>{{ unit.unit }}</strong>{% if unit.address %}<small>{{ unit.address }}</small>{% endif %}</td>
+      <td>{{ unit.city }}</td>
+      <td>{{ unit.email }}{% if unit.phone %}<small>{{ unit.phone }}</small>{% endif %}</td>
+      <td>
+        <form method="post" action="{{ url_for('ajt_update_status', unit_id=unit.id) }}">
+          <select name="status" onchange="this.form.submit()">
+            {% for s in status_options %}<option value="{{ s }}" {% if unit.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select>
+        </form>
+      </td>
+      <td>{{ unit.last_contact.strftime('%d/%m/%Y') if unit.last_contact else '—' }}</td>
+      <td>
+        <a class="btn small" href="{{ url_for('ajt_preview', unit_id=unit.id) }}">Prévia</a>
+        {% if unit.source_url %}<a class="btn small" href="{{ unit.source_url }}" target="_blank" rel="noopener">Fonte</a>{% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7">Nenhuma unidade cadastrada ainda. Importe a base oficial ou adicione uma Vara manualmente.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="card top-gap">
+  <h2>Regra desta fase</h2>
+  <p class="muted">Nenhum envio AJ/JT é disparado por esta tela. Primeiro cadastramos e validamos as unidades, o currículo e a mensagem; o envio controlado entra no próximo bloco.</p>
+</div>
+{% endblock %}
