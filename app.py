@@ -508,7 +508,7 @@ def send_email_for_lead(lead):
         if material:
             attachments.append({"filename": material.filename, "data": material.data})
 
-    send_via_resend(
+    provider_response = send_via_resend(
         recipient=lead.email,
         subject=subject,
         text_body=body,
@@ -516,10 +516,20 @@ def send_email_for_lead(lead):
         attachments=attachments,
     )
 
+    provider_id = ""
+    if isinstance(provider_response, dict):
+        provider_id = str(provider_response.get("id") or "")
+
     lead.status = "Enviado"
     lead.last_contact = datetime.now(timezone.utc)
     lead.last_error = None
-    db.session.add(SendLog(lead_id=lead.id, recipient=lead.email, subject=subject, result="sent"))
+    db.session.add(SendLog(
+        lead_id=lead.id,
+        recipient=lead.email,
+        subject=subject,
+        result="sent",
+        detail=(f"Resend ID: {provider_id}" if provider_id else None),
+    ))
     db.session.commit()
 
 
@@ -850,6 +860,84 @@ def send_trt15_secretariat_email(secretariat):
     ))
     db.session.commit()
     return recipient, len(rows)
+
+
+@app.get("/historico-envios")
+@login_required
+def send_history():
+    kind = request.args.get("tipo", "").strip()
+    status_filter = request.args.get("status", "").strip()
+    search = request.args.get("q", "").strip().lower()
+    local_tz = ZoneInfo("America/Sao_Paulo")
+    entries = []
+
+    if kind in {"", "comercial"}:
+        for log in SendLog.query.order_by(SendLog.sent_at.desc()).limit(500).all():
+            lead = log.lead
+            entries.append({
+                "type": "comercial",
+                "type_label": "Prospecção HM",
+                "source": lead.office if lead else "Lead comercial",
+                "recipient": log.recipient,
+                "subject": log.subject,
+                "result": log.result,
+                "detail": log.detail or "",
+                "sent_at": log.sent_at,
+                "sent_at_local": log.sent_at.astimezone(local_tz) if log.sent_at else None,
+                "tribunal": "",
+                "secretariat": "",
+            })
+
+    if kind in {"", "ajt"}:
+        for log in AjtSendLog.query.order_by(AjtSendLog.sent_at.desc()).limit(500).all():
+            entries.append({
+                "type": "ajt",
+                "type_label": "AJ/JT",
+                "source": f"{log.tribunal} · {log.secretariat}",
+                "recipient": log.recipient,
+                "subject": log.subject,
+                "result": log.result,
+                "detail": log.detail or "",
+                "sent_at": log.sent_at,
+                "sent_at_local": log.sent_at.astimezone(local_tz) if log.sent_at else None,
+                "tribunal": log.tribunal,
+                "secretariat": log.secretariat,
+            })
+
+    if status_filter:
+        entries = [row for row in entries if row["result"] == status_filter]
+
+    if search:
+        entries = [
+            row for row in entries
+            if search in " ".join([
+                row["source"],
+                row["recipient"],
+                row["subject"],
+                row["detail"],
+                row["tribunal"],
+                row["secretariat"],
+            ]).lower()
+        ]
+
+    entries.sort(
+        key=lambda row: row["sent_at"] or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+
+    total_sent = SendLog.query.filter_by(result="sent").count() + AjtSendLog.query.filter_by(result="sent").count()
+    total_errors = SendLog.query.filter_by(result="error").count() + AjtSendLog.query.filter_by(result="error").count()
+    commercial_sent = SendLog.query.filter_by(result="sent").count()
+    ajt_sent = AjtSendLog.query.filter_by(result="sent").count()
+
+    return render_template(
+        "send_history.html",
+        entries=entries[:500],
+        total_sent=total_sent,
+        total_errors=total_errors,
+        commercial_sent=commercial_sent,
+        ajt_sent=ajt_sent,
+    )
 
 
 @app.get("/health")
