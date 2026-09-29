@@ -476,7 +476,12 @@ def get_property_form_data(prop=None):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "service": "street-mall-crm"}, 200
+    return {
+        "ok": True,
+        "service": "street-mall-crm",
+        "properties": Property.query.count(),
+        "contacts": PropertyContact.query.count(),
+    }, 200
 
 
 @app.route("/login", methods=["GET", "POST"])
