@@ -182,6 +182,61 @@ class AppMeta(db.Model):
     value = db.Column(db.String(500), nullable=False)
 
 
+class ExpansionCompany(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(260), nullable=False, unique=True, index=True)
+    segment = db.Column(db.String(180), index=True)
+    point_profile = db.Column(db.Text)
+    probable_model = db.Column(db.String(220))
+    source_url = db.Column(db.String(900))
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    executives = db.relationship("ExpansionExecutive", backref="company", cascade="all, delete-orphan", lazy=True)
+    markets = db.relationship("ExpansionMarket", backref="company", cascade="all, delete-orphan", lazy=True)
+    property_matches = db.relationship("PropertyCompanyMatch", backref="company", cascade="all, delete-orphan", lazy=True)
+
+
+class ExpansionExecutive(db.Model):
+    __table_args__ = (db.UniqueConstraint("company_id", "name", name="uq_expansion_executive_company_name"),)
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("expansion_company.id"), nullable=False, index=True)
+    name = db.Column(db.String(240), nullable=False)
+    role = db.Column(db.String(300))
+    linkedin_url = db.Column(db.String(900))
+    contact_channel = db.Column(db.Text)
+    email = db.Column(db.String(260), index=True)
+    status = db.Column(db.String(80), default="Não contatado")
+    last_contact = db.Column(db.DateTime(timezone=True))
+    next_follow_up = db.Column(db.Date)
+    notes = db.Column(db.Text)
+
+
+class ExpansionMarket(db.Model):
+    __table_args__ = (db.UniqueConstraint("company_id", "city", "state", name="uq_expansion_market_company_city"),)
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("expansion_company.id"), nullable=False, index=True)
+    city = db.Column(db.String(140), nullable=False, index=True)
+    state = db.Column(db.String(8), nullable=False, index=True)
+    priority = db.Column(db.String(40), index=True)
+    adherence_score = db.Column(db.Float, index=True)
+    status = db.Column(db.String(160))
+    last_contact = db.Column(db.Date)
+    next_action = db.Column(db.Text)
+    notes = db.Column(db.Text)
+
+
+class PropertyCompanyMatch(db.Model):
+    __table_args__ = (db.UniqueConstraint("property_id", "company_id", name="uq_property_company_match"),)
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey("property.id"), nullable=False, index=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("expansion_company.id"), nullable=False, index=True)
+    status = db.Column(db.String(80), default="Potencial", index=True)
+    fit_score = db.Column(db.Float)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    property = db.relationship("Property", backref="network_matches")
+
+
 class EmailLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     property_id = db.Column(db.Integer, db.ForeignKey("property.id"), nullable=False, index=True)
@@ -194,6 +249,91 @@ class EmailLog(db.Model):
     detail = db.Column(db.Text)
     contact = db.relationship("PropertyContact")
     property = db.relationship("Property")
+
+
+def parse_adherence(value):
+    raw = clean_text(value)
+    match = re.search(r"(\d+(?:[.,]\d+)?)", raw)
+    if not match:
+        return None
+    try:
+        return float(match.group(1).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def email_from_channel(value):
+    raw = clean_text(value)
+    match = re.search(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", raw, re.I)
+    return match.group(0).lower() if match else ""
+
+
+def import_network_rows(rows):
+    companies_created = executives_created = markets_created = 0
+    for row in rows:
+        company_name = clean_text(row.get("Empresa / Marca"))
+        city = clean_text(row.get("Cidade"))
+        state = clean_text(row.get("UF")).upper()
+        if not company_name or not city:
+            continue
+
+        company = ExpansionCompany.query.filter(db.func.lower(ExpansionCompany.name) == company_name.lower()).first()
+        if not company:
+            company = ExpansionCompany(name=company_name)
+            db.session.add(company)
+            db.session.flush()
+            companies_created += 1
+
+        segment = clean_text(row.get("Segmento"))
+        point_profile = clean_text(row.get("Metragem / perfil de ponto"))
+        probable_model = clean_text(row.get("Modelo provável"))
+        source_url = clean_text(row.get("Fonte"))
+        if segment and not company.segment:
+            company.segment = segment
+        if point_profile and (not company.point_profile or company.point_profile == "A confirmar"):
+            company.point_profile = point_profile
+        if probable_model and not company.probable_model:
+            company.probable_model = probable_model
+        if source_url and not company.source_url:
+            company.source_url = source_url
+
+        executive_name = clean_text(row.get("Responsável / Referência"))
+        if executive_name and executive_name.lower() != "a confirmar":
+            executive = ExpansionExecutive.query.filter(
+                ExpansionExecutive.company_id == company.id,
+                db.func.lower(ExpansionExecutive.name) == executive_name.lower(),
+            ).first()
+            if not executive:
+                executive = ExpansionExecutive(company_id=company.id, name=executive_name)
+                db.session.add(executive)
+                executives_created += 1
+            role = clean_text(row.get("Cargo / Área"))
+            linkedin = clean_text(row.get("LinkedIn / Canal"))
+            channel = clean_text(row.get("E-mail / Canal de imóveis"))
+            if role:
+                executive.role = role
+            if linkedin:
+                executive.linkedin_url = linkedin
+            if channel:
+                executive.contact_channel = channel
+                found_email = email_from_channel(channel)
+                if found_email:
+                    executive.email = found_email
+
+        market = ExpansionMarket.query.filter_by(company_id=company.id, city=city, state=state).first()
+        if not market:
+            market = ExpansionMarket(company_id=company.id, city=city, state=state)
+            db.session.add(market)
+            markets_created += 1
+        market.priority = clean_text(row.get("Prioridade"))
+        market.adherence_score = parse_adherence(row.get("Aderência Street Mall"))
+        market.status = clean_text(row.get("Status"))
+        market.last_contact = to_date(row.get("Último contato"))
+        market.next_action = clean_text(row.get("Próxima ação"))
+        market.notes = clean_text(row.get("Observações"))
+
+    db.session.commit()
+    return companies_created, executives_created, markets_created
 
 
 def env_bool(name, default=False):
@@ -484,6 +624,8 @@ def health():
         "service": "street-mall-crm",
         "properties": Property.query.count(),
         "contacts": PropertyContact.query.count(),
+        "networks": ExpansionCompany.query.count(),
+        "executives": ExpansionExecutive.query.count(),
     }, 200
 
 
@@ -523,6 +665,7 @@ def dashboard():
     high = Property.query.filter(Property.priority == "Alta").count()
     shortlist = Property.query.filter(Property.status == "Shortlist").count()
     with_contact = Property.query.join(PropertyContact).distinct().count()
+    networks_count = ExpansionCompany.query.count()
     city_counts = (
         db.session.query(Property.city, Property.state, db.func.count(Property.id))
         .group_by(Property.city, Property.state)
@@ -541,6 +684,7 @@ def dashboard():
         high=high,
         shortlist=shortlist,
         with_contact=with_contact,
+        networks_count=networks_count,
         city_counts=city_counts,
         top_properties=top_properties,
         followups=followups,
@@ -637,11 +781,27 @@ def property_detail(property_id):
     prop = db.get_or_404(Property, property_id)
     interactions = Interaction.query.filter_by(property_id=prop.id).order_by(Interaction.occurred_at.desc()).all()
     logs = EmailLog.query.filter_by(property_id=prop.id).order_by(EmailLog.sent_at.desc()).limit(20).all()
+    network_matches = (
+        PropertyCompanyMatch.query.filter_by(property_id=prop.id)
+        .join(ExpansionCompany)
+        .order_by(PropertyCompanyMatch.fit_score.desc().nullslast(), ExpansionCompany.name.asc())
+        .all()
+    )
+    matched_ids = {m.company_id for m in network_matches}
+    suggested_networks = (
+        ExpansionCompany.query.join(ExpansionMarket)
+        .filter(ExpansionMarket.city == prop.city, ExpansionMarket.state == prop.state)
+        .filter(~ExpansionCompany.id.in_(matched_ids) if matched_ids else True)
+        .order_by(ExpansionMarket.adherence_score.desc().nullslast(), ExpansionCompany.name.asc())
+        .all()
+    )
     return render_template(
         "property_detail.html",
         prop=prop,
         interactions=interactions,
         logs=logs,
+        network_matches=network_matches,
+        suggested_networks=suggested_networks,
         contact_status_options=CONTACT_STATUS,
         contact_roles=CONTACT_ROLES,
     )
@@ -739,6 +899,98 @@ def contacts():
     rows = q.order_by(Property.city.asc(), PropertyContact.company.asc(), PropertyContact.name.asc()).all()
     cities = [r[0] for r in db.session.query(Property.city).distinct().order_by(Property.city).all() if r[0]]
     return render_template("contacts.html", contacts=rows, cities=cities, contact_status_options=CONTACT_STATUS)
+
+
+@app.get("/networks")
+@login_required
+def networks():
+    q = ExpansionCompany.query
+    search = request.args.get("q", "").strip()
+    city = request.args.get("city", "").strip()
+    segment = request.args.get("segment", "").strip()
+    priority = request.args.get("priority", "").strip()
+    joined_market = False
+
+    if search:
+        term = f"%{search}%"
+        q = q.outerjoin(ExpansionExecutive).filter(db.or_(
+            ExpansionCompany.name.ilike(term),
+            ExpansionCompany.segment.ilike(term),
+            ExpansionExecutive.name.ilike(term),
+            ExpansionExecutive.role.ilike(term),
+        ))
+    if city or priority:
+        q = q.join(ExpansionMarket)
+        joined_market = True
+    if city:
+        q = q.filter(ExpansionMarket.city == city)
+    if priority:
+        q = q.filter(ExpansionMarket.priority == priority)
+    if segment:
+        q = q.filter(ExpansionCompany.segment == segment)
+
+    rows = q.distinct().order_by(ExpansionCompany.name.asc()).all()
+    cities = [r[0] for r in db.session.query(ExpansionMarket.city).distinct().order_by(ExpansionMarket.city).all() if r[0]]
+    segments = [r[0] for r in db.session.query(ExpansionCompany.segment).distinct().order_by(ExpansionCompany.segment).all() if r[0]]
+    return render_template(
+        "networks.html",
+        companies=rows,
+        cities=cities,
+        segments=segments,
+        priority_options=PRIORITY_OPTIONS,
+    )
+
+
+@app.get("/networks/<int:company_id>")
+@login_required
+def network_detail(company_id):
+    company = db.get_or_404(ExpansionCompany, company_id)
+    matches = (
+        PropertyCompanyMatch.query.filter_by(company_id=company.id)
+        .join(Property)
+        .order_by(PropertyCompanyMatch.fit_score.desc().nullslast(), Property.preliminary_score.desc().nullslast())
+        .all()
+    )
+    target_cities = {(m.city, m.state) for m in company.markets}
+    properties = Property.query.order_by(Property.preliminary_score.desc().nullslast()).all()
+    suggested_properties = [p for p in properties if (p.city, p.state) in target_cities and all(x.property_id != p.id for x in matches)]
+    return render_template("network_detail.html", company=company, matches=matches, suggested_properties=suggested_properties[:30])
+
+
+@app.post("/networks/<int:company_id>/matches")
+@login_required
+def network_match_add(company_id):
+    company = db.get_or_404(ExpansionCompany, company_id)
+    property_id = request.form.get("property_id", type=int)
+    prop = db.get_or_404(Property, property_id)
+    match = PropertyCompanyMatch.query.filter_by(property_id=prop.id, company_id=company.id).first()
+    if not match:
+        match = PropertyCompanyMatch(property_id=prop.id, company_id=company.id)
+        db.session.add(match)
+    match.status = clean_text(request.form.get("status")) or "Potencial"
+    match.fit_score = to_float(request.form.get("fit_score"))
+    match.notes = clean_text(request.form.get("notes"))
+    db.session.commit()
+    flash(f"{company.name} vinculada ao imóvel.", "success")
+    return redirect(url_for("network_detail", company_id=company.id))
+
+
+@app.post("/properties/<int:property_id>/network-matches")
+@login_required
+def property_network_match_add(property_id):
+    prop = db.get_or_404(Property, property_id)
+    company_id = request.form.get("company_id", type=int)
+    company = db.get_or_404(ExpansionCompany, company_id)
+    match = PropertyCompanyMatch.query.filter_by(property_id=prop.id, company_id=company.id).first()
+    if not match:
+        match = PropertyCompanyMatch(property_id=prop.id, company_id=company.id)
+        db.session.add(match)
+    match.status = clean_text(request.form.get("status")) or "Potencial"
+    match.fit_score = to_float(request.form.get("fit_score"))
+    match.notes = clean_text(request.form.get("notes"))
+    db.session.commit()
+    flash(f"{company.name} vinculada ao imóvel.", "success")
+    return redirect(url_for("property_detail", property_id=prop.id))
 
 
 @app.get("/outreach")
@@ -871,6 +1123,27 @@ with app.app_context():
             import_rows(csv.DictReader(io.StringIO(seed_csv)))
         except Exception as exc:
             app.logger.error("Falha ao carregar seed de imóveis por variável: %s", exc)
+
+    network_seed_version = "1"
+    network_meta = db.session.get(AppMeta, "network_seed_version")
+    if not network_meta or network_meta.value != network_seed_version:
+        network_seed_path = os.path.join(os.path.dirname(__file__), "seed_networks.csv")
+        if os.path.exists(network_seed_path):
+            try:
+                with open(network_seed_path, "r", encoding="utf-8-sig", newline="") as seed_file:
+                    companies_created, executives_created, markets_created = import_network_rows(csv.DictReader(seed_file))
+                if network_meta:
+                    network_meta.value = network_seed_version
+                else:
+                    db.session.add(AppMeta(key="network_seed_version", value=network_seed_version))
+                db.session.commit()
+                app.logger.warning(
+                    "Seed Redes v%s: %d empresas, %d executivos e %d praças criados.",
+                    network_seed_version, companies_created, executives_created, markets_created,
+                )
+            except Exception as exc:
+                db.session.rollback()
+                app.logger.error("Falha ao importar redes de expansão: %s", exc)
 
     app.logger.warning("Street Mall database ready: %d imóveis.", Property.query.count())
 
