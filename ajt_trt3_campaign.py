@@ -48,6 +48,38 @@ TRT3_GROUPS = {
         ],
         "context": "",
     },
+
+    "RMBH_EXPANSAO_1": {
+        "label": "RMBH/entorno — expansão 1",
+        "source_url": "https://www.tst.jus.br/documents/18640430/24404697/End03.pdf/81f775dc-5c16-a83d-a024-2a22864ea499",
+        "targets": [
+            ("1ª Vara do Trabalho de Betim", "vt1.betim@trt3.jus.br"),
+            ("2ª Vara do Trabalho de Betim", "vt2.betim@trt3.jus.br"),
+            ("3ª Vara do Trabalho de Betim", "vt3.betim@trt3.jus.br"),
+            ("4ª Vara do Trabalho de Betim", "vt4.betim@trt3.jus.br"),
+            ("5ª Vara do Trabalho de Betim", "vt5.betim@trt3.jus.br"),
+            ("6ª Vara do Trabalho de Betim", "vt6.betim@trt3.jus.br"),
+            ("1ª Vara do Trabalho de Nova Lima", "vt1.novalima@trt3.jus.br"),
+            ("2ª Vara do Trabalho de Nova Lima", "vt2.novalima@trt3.jus.br"),
+            ("1ª Vara do Trabalho de Pedro Leopoldo", "vt1.pedroleopoldo@trt3.jus.br"),
+            ("2ª Vara do Trabalho de Pedro Leopoldo", "vt2.pedroleopoldo@trt3.jus.br"),
+            ("Vara do Trabalho de Ribeirão das Neves", "vt.ribeiraodasneves@trt3.jus.br"),
+            ("Vara do Trabalho de Sabará", "vt.sabara@trt3.jus.br"),
+        ],
+        "context": "",
+    },
+    "CENTRO_OESTE_1": {
+        "label": "Centro-Oeste de Minas — expansão 1",
+        "source_url": "https://www.tst.jus.br/documents/18640430/24404697/End03.pdf/81f775dc-5c16-a83d-a024-2a22864ea499",
+        "targets": [
+            ("1ª Vara do Trabalho de Divinópolis", "vt1.divinopolis@trt3.jus.br"),
+            ("2ª Vara do Trabalho de Divinópolis", "vt2.divinopolis@trt3.jus.br"),
+            ("Vara do Trabalho de Pará de Minas", "vt.parademinas@trt3.jus.br"),
+            ("Vara do Trabalho de Itaúna", "vt.itauna@trt3.jus.br"),
+            ("Vara do Trabalho de Bom Despacho", "vt.bomdespacho@trt3.jus.br"),
+        ],
+        "context": "",
+    },
 }
 
 
