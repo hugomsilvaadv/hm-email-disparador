@@ -188,6 +188,19 @@ AJT_TRT15_CONTACT_GROUPS = [
 
 SP_INTEREST_SCOPE = "Todos os municípios de SP informados no cadastro AJ/JT do usuário"
 
+TRT2_MUNICIPALITIES = [
+    "Arujá", "Barueri", "Bertioga", "Biritiba Mirim", "Caieiras", "Cajamar",
+    "Carapicuíba", "Cotia", "Cubatão", "Diadema", "Embu das Artes", "Embu-Guaçu",
+    "Ferraz de Vasconcelos", "Francisco Morato", "Franco da Rocha", "Guararema",
+    "Guarujá", "Guarulhos", "Ibiúna", "Itapecerica da Serra", "Itapevi",
+    "Itaquaquecetuba", "Jandira", "Juquitiba", "Mairiporã", "Mauá",
+    "Mogi das Cruzes", "Osasco", "Pirapora do Bom Jesus", "Poá", "Praia Grande",
+    "Ribeirão Pires", "Rio Grande da Serra", "Salesópolis", "Santa Isabel",
+    "Santana de Parnaíba", "Santo André", "Santos", "São Bernardo do Campo",
+    "São Caetano do Sul", "São Lourenço da Serra", "São Paulo", "São Vicente",
+    "Suzano", "Taboão da Serra", "Vargem Grande Paulista",
+]
+
 DEFAULT_SUBJECT = "Apoio técnico em cálculos trabalhistas"
 DEFAULT_BODY = """Olá, equipe do {office}, tudo bem?
 
@@ -789,6 +802,8 @@ def ajt_units():
             AjtUnit.unit.like("Secretaria Conjunta TRT-15%")
         ).count(),
         sp_interest_scope=SP_INTEREST_SCOPE,
+        trt2_municipalities=TRT2_MUNICIPALITIES,
+        trt2_count=len(TRT2_MUNICIPALITIES),
     )
 
 
