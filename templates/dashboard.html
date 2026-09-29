@@ -1,23 +1,59 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-head"><div><h1>Painel de prospecção</h1><p>Envio individual pela Resend API com controle de limite e histórico.</p></div><a class="btn" href="{{ url_for('leads') }}">Abrir leads</a></div>
-<div class="grid four">
-  <div class="card metric"><span>Total</span><strong>{{ total }}</strong></div>
-  <div class="card metric"><span>Não contatados</span><strong>{{ pending }}</strong></div>
-  <div class="card metric"><span>Enviados</span><strong>{{ sent }}</strong></div>
-  <div class="card metric"><span>Respostas / oportunidades</span><strong>{{ replies }}</strong></div>
+<div class="page-head">
+  <div><h1>Painel de originação</h1><p>Pipeline imobiliário para Street Mall / Open Mall, com enriquecimento e histórico comercial.</p></div>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('properties') }}">Abrir pipeline</a>
+    <a class="btn primary" href="{{ url_for('property_new') }}">Novo imóvel</a>
+  </div>
 </div>
+
+<div class="grid four">
+  <div class="card metric"><span>Imóveis mapeados</span><strong>{{ total }}</strong></div>
+  <div class="card metric"><span>Prioridade alta</span><strong>{{ high }}</strong></div>
+  <div class="card metric"><span>Com contato</span><strong>{{ with_contact }}</strong></div>
+  <div class="card metric"><span>Shortlist</span><strong>{{ shortlist }}</strong></div>
+</div>
+
 <div class="grid two top-gap">
-  <section class="card"><h2>Segurança de envio</h2>
-    <div class="status-row"><span>Resend API</span><b class="{{ 'ok' if resend_ready else 'bad' }}">{{ 'Configurado' if smtp_ready else 'Pendente' }}</b></div>
-    <div class="status-row"><span>Envios</span><b class="{{ 'ok' if send_enabled else 'warn' }}">{{ 'Liberados' if send_enabled else 'Bloqueados' }}</b></div>
-    <div class="status-row"><span>Material anexo</span><b class="{{ 'ok' if material else 'warn' }}">{{ material.filename if material else 'Pendente' }}</b></div>
-    <div class="status-row"><span>Hoje</span><b>{{ sent_today }} / {{ daily_limit }}</b></div>
-    <p class="muted">O sistema nasce com SEND_ENABLED=false para impedir qualquer disparo acidental.</p>
+  <section class="card">
+    <div class="section-head"><div><h2>Melhores oportunidades</h2><p>Ordenação inicial pelo score disponível.</p></div></div>
+    {% if top_properties %}
+    <div class="compact-list">
+      {% for prop in top_properties %}
+      <a class="compact-row" href="{{ url_for('property_detail', property_id=prop.id) }}">
+        <div><strong>{{ prop.display_city }}</strong><span>{{ prop.address }}</span></div>
+        <div class="score">{{ '%.1f'|format(prop.score) if prop.score is not none else '—' }}</div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">Importe a planilha atual para iniciar o pipeline.</p>{% endif %}
   </section>
-  <section class="card"><h2>Lote atual</h2>
-    {% if batch.running %}<p><strong>Em execução</strong></p><p>{{ batch.done }} de {{ batch.total }} processados · {{ batch.errors }} erro(s)</p>{% else %}<p>Nenhum lote em execução.</p>{% endif %}
-    <p class="muted">Os e-mails são enviados um por um e com intervalo configurável.</p>
+
+  <section class="card">
+    <h2>Operação comercial</h2>
+    <div class="status-row"><span>Resend API</span><b class="{{ 'ok' if resend_ready else 'warn' }}">{{ 'Configurada' if resend_ready else 'Pendente' }}</b></div>
+    <div class="status-row"><span>Envios</span><b class="{{ 'ok' if send_enabled else 'warn' }}">{{ 'Liberados' if send_enabled else 'Bloqueados por segurança' }}</b></div>
+    <p class="muted">A base pode ser pesquisada e enriquecida normalmente. O disparo fica desligado até definirmos o remetente definitivo do projeto.</p>
+  </section>
+</div>
+
+<div class="grid two top-gap">
+  <section class="card">
+    <h2>Praças mapeadas</h2>
+    {% for city, state, count in city_counts %}
+      <div class="status-row"><span>{{ city }}{% if state %}/{{ state }}{% endif %}</span><b>{{ count }}</b></div>
+    {% else %}<p class="muted">Nenhuma praça importada ainda.</p>{% endfor %}
+  </section>
+
+  <section class="card">
+    <h2>Follow-ups vencidos / hoje</h2>
+    {% for c in followups %}
+      <a class="followup-row" href="{{ url_for('property_detail', property_id=c.property_id) }}">
+        <div><strong>{{ c.name or c.company or 'Contato' }}</strong><span>{{ c.property.display_city }} · {{ c.property.address }}</span></div>
+        <b>{{ c.next_follow_up.strftime('%d/%m') if c.next_follow_up else '' }}</b>
+      </a>
+    {% else %}<p class="muted">Nenhum follow-up pendente.</p>{% endfor %}
   </section>
 </div>
 {% endblock %}
