@@ -177,6 +177,11 @@ class Interaction(db.Model):
     property = db.relationship("Property")
 
 
+class AppMeta(db.Model):
+    key = db.Column(db.String(120), primary_key=True)
+    value = db.Column(db.String(500), nullable=False)
+
+
 class EmailLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     property_id = db.Column(db.Integer, db.ForeignKey("property.id"), nullable=False, index=True)
@@ -300,14 +305,12 @@ def property_payload_from_row(row):
 
 
 def upsert_property(payload):
-    query = None
-    if payload.get("source_url"):
-        query = Property.query.filter(Property.source_url == payload["source_url"]).first()
-    if not query:
-        query = Property.query.filter(
-            db.func.lower(Property.city) == payload["city"].lower(),
-            db.func.lower(Property.address) == payload["address"].lower(),
-        ).first()
+    # A URL de portal/imobiliária pode representar vários imóveis.
+    # A identidade do ativo no pipeline é cidade + endereço/eixo.
+    query = Property.query.filter(
+        db.func.lower(Property.city) == payload["city"].lower(),
+        db.func.lower(Property.address) == payload["address"].lower(),
+    ).first()
     if query:
         for key, value in payload.items():
             if value not in (None, ""):
@@ -837,18 +840,29 @@ def export_properties():
 
 with app.app_context():
     db.create_all()
-    if Property.query.count() == 0:
+
+    # Migração idempotente do pipeline inicial. A versão impede que futuros
+    # deploys sobrescrevam alterações manuais feitas no CRM.
+    seed_version = "2"
+    seed_meta = db.session.get(AppMeta, "property_seed_version")
+    if not seed_meta or seed_meta.value != seed_version:
         seed_path = os.path.join(os.path.dirname(__file__), "seed_properties.csv")
         if os.path.exists(seed_path):
             try:
                 with open(seed_path, "r", encoding="utf-8-sig", newline="") as seed_file:
                     created, updated, skipped = import_rows(csv.DictReader(seed_file))
-                app.logger.info(
-                    "Seed Street Mall carregado: %d novos, %d atualizados, %d ignorados.",
-                    created, updated, skipped,
+                if seed_meta:
+                    seed_meta.value = seed_version
+                else:
+                    db.session.add(AppMeta(key="property_seed_version", value=seed_version))
+                db.session.commit()
+                app.logger.warning(
+                    "Seed Street Mall v%s: %d novos, %d atualizados, %d ignorados.",
+                    seed_version, created, updated, skipped,
                 )
             except Exception as exc:
-                app.logger.error("Falha ao carregar seed local de imóveis: %s", exc)
+                db.session.rollback()
+                app.logger.error("Falha ao reconciliar seed local de imóveis: %s", exc)
 
     seed_b64 = os.environ.get("PROPERTIES_SEED_CSV_B64", "").strip()
     if seed_b64 and Property.query.count() == 0:
@@ -858,7 +872,7 @@ with app.app_context():
         except Exception as exc:
             app.logger.error("Falha ao carregar seed de imóveis por variável: %s", exc)
 
-    app.logger.info("Street Mall database ready: %d imóveis.", Property.query.count())
+    app.logger.warning("Street Mall database ready: %d imóveis.", Property.query.count())
 
 
 if __name__ == "__main__":
