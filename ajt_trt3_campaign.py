@@ -69,7 +69,7 @@ TRT3_GROUPS = {
         "context": "",
     },
     "CENTRO_OESTE_1": {
-        "label": "Centro-Oeste de Minas — expansão 1",
+        "label": "Centro-Oeste/Central de Minas — expansão 1",
         "source_url": "https://www.tst.jus.br/documents/18640430/24404697/End03.pdf/81f775dc-5c16-a83d-a024-2a22864ea499",
         "targets": [
             ("1ª Vara do Trabalho de Divinópolis", "vt1.divinopolis@trt3.jus.br"),
@@ -77,6 +77,10 @@ TRT3_GROUPS = {
             ("Vara do Trabalho de Pará de Minas", "vt.parademinas@trt3.jus.br"),
             ("Vara do Trabalho de Itaúna", "vt.itauna@trt3.jus.br"),
             ("Vara do Trabalho de Bom Despacho", "vt.bomdespacho@trt3.jus.br"),
+            ("Vara do Trabalho de Curvelo", "vt.curvelo@trt3.jus.br"),
+            ("1ª Vara do Trabalho de Congonhas", "vt1.congonhas@trt3.jus.br"),
+            ("Vara do Trabalho de Conselheiro Lafaiete", "vt.lafaiete@trt3.jus.br"),
+            ("Vara do Trabalho de Diamantina", "vt.diamantina@trt3.jus.br"),
         ],
         "context": "",
     },
