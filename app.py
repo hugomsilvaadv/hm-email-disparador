@@ -74,6 +74,25 @@ HM Perícia & Cálculos
 E-mail: hugo@hmpericia.com.br
 """
 
+
+AJT_INITIAL_UNITS = [
+    {"tribunal":"TRT-15","city":"Ribeirão Preto","unit":"1ª Vara do Trabalho de Ribeirão Preto","email":"daarp.ribpreto@trt15.jus.br","address":"R. Afonso Taranto, 105 - Nova Ribeirania - Ribeirão Preto/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Ribeirão Preto","unit":"2ª Vara do Trabalho de Ribeirão Preto","email":"daarp.ribpreto@trt15.jus.br","address":"R. Afonso Taranto, 105 - Nova Ribeirania - Ribeirão Preto/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Ribeirão Preto","unit":"3ª Vara do Trabalho de Ribeirão Preto","email":"daarp.ribpreto@trt15.jus.br","address":"R. Afonso Taranto, 105 - Nova Ribeirania - Ribeirão Preto/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Ribeirão Preto","unit":"4ª Vara do Trabalho de Ribeirão Preto","email":"daarp.ribpreto@trt15.jus.br","address":"R. Afonso Taranto, 105 - Nova Ribeirania - Ribeirão Preto/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Ribeirão Preto","unit":"5ª Vara do Trabalho de Ribeirão Preto","email":"daarp.ribpreto@trt15.jus.br","address":"R. Afonso Taranto, 105 - Nova Ribeirania - Ribeirão Preto/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Ribeirão Preto","unit":"6ª Vara do Trabalho de Ribeirão Preto","email":"daarp.ribpreto@trt15.jus.br","address":"R. Afonso Taranto, 105 - Nova Ribeirania - Ribeirão Preto/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Sertãozinho","unit":"1ª Vara do Trabalho de Sertãozinho","email":"saj.1vt.sertaozinho@trt15.jus.br","address":"R. Antonio Seron, 254 - Centro - Sertãozinho/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Sertãozinho","unit":"2ª Vara do Trabalho de Sertãozinho","email":"saj.2vt.sertaozinho@trt15.jus.br","address":"R. Antonio Seron, 254 - Centro - Sertãozinho/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Franca","unit":"1ª Vara do Trabalho de Franca","email":"saj.1vt.franca@trt15.jus.br","address":"R. Frei Germano, 2310 - Estação - Franca/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Franca","unit":"2ª Vara do Trabalho de Franca","email":"saj.2vt.franca@trt15.jus.br","address":"R. Frei Germano, 2310 - Estação - Franca/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Araraquara","unit":"1ª Vara do Trabalho de Araraquara","email":"daaararaquara.scararaquara@trt15.jus.br","address":"Av. José Bonifácio, 176 - Centro - Araraquara/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Araraquara","unit":"2ª Vara do Trabalho de Araraquara","email":"daaararaquara.scararaquara@trt15.jus.br","address":"Av. José Bonifácio, 176 - Centro - Araraquara/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"Araraquara","unit":"3ª Vara do Trabalho de Araraquara","email":"daaararaquara.scararaquara@trt15.jus.br","address":"Av. José Bonifácio, 176 - Centro - Araraquara/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"São Carlos","unit":"1ª Vara do Trabalho de São Carlos","email":"saj.1vt.saocarlos@trt15.jus.br","address":"R. José Bonifácio, 888 - São Carlos/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+    {"tribunal":"TRT-15","city":"São Carlos","unit":"2ª Vara do Trabalho de São Carlos","email":"saj.2vt.saocarlos@trt15.jus.br","address":"R. José Bonifácio, 888 - São Carlos/SP","source_url":"https://trt15.jus.br/balcao-virtual-1grau"},
+]
+
 DEFAULT_SUBJECT = "Apoio técnico em cálculos trabalhistas"
 DEFAULT_BODY = """Olá, equipe do {office}, tudo bem?
 
@@ -425,6 +444,14 @@ def render_ajt_body(unit):
     return AJT_DEFAULT_BODY.format(unit=unit.unit)
 
 
+def seed_initial_ajt_units():
+    if AjtUnit.query.count() > 0:
+        return
+    for item in AJT_INITIAL_UNITS:
+        db.session.add(AjtUnit(**item, status="Não contatado"))
+    db.session.commit()
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "service": "hm-email-disparador"}, 200
@@ -768,6 +795,7 @@ def test_email():
 
 with app.app_context():
     db.create_all()
+    seed_initial_ajt_units()
     seed_b64 = os.environ.get("LEADS_SEED_B64", "").strip()
     if seed_b64 and Lead.query.count() == 0:
         try:
