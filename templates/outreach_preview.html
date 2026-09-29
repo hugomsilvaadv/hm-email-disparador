@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Preparar e-mail · Street Mall{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Preparar abordagem</h1><p>{{ contact.property.display_city }} · {{ contact.property.address }}</p></div>
+  <a class="btn" href="{{ url_for('property_detail', property_id=contact.property_id) }}">Voltar à ficha</a>
+</div>
+<div class="grid two">
+  <section class="card">
+    <h2>Destinatário</h2>
+    <div class="status-row"><span>Nome</span><b>{{ contact.name or '—' }}</b></div>
+    <div class="status-row"><span>Empresa</span><b>{{ contact.company or '—' }}</b></div>
+    <div class="status-row"><span>E-mail</span><b>{{ contact.email or '—' }}</b></div>
+    <div class="status-row"><span>Status</span><b>{{ contact.status }}</b></div>
+    <p class="muted">O texto abaixo é editável antes de cada envio. Nada é disparado automaticamente.</p>
+  </section>
+  <section class="card">
+    <h2>Segurança</h2>
+    <div class="status-row"><span>Resend</span><b class="{{ 'ok' if resend_ready else 'warn' }}">{{ 'Configurada' if resend_ready else 'Pendente' }}</b></div>
+    <div class="status-row"><span>Envio</span><b class="{{ 'ok' if send_enabled else 'warn' }}">{{ 'Liberado' if send_enabled else 'Bloqueado' }}</b></div>
+  </section>
+</div>
+
+<form method="post" class="card top-gap">
+  <label>Assunto<input name="subject" value="{{ subject }}" required></label>
+  <label>Mensagem<textarea name="body" rows="18" required>{{ body }}</textarea></label>
+  <div class="actions">
+    <button class="btn primary" type="submit" name="action" value="send" {% if not send_enabled or not resend_ready %}disabled{% endif %}>Enviar e registrar</button>
+  </div>
+</form>
+{% endblock %}
