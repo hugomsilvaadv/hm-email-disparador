@@ -91,6 +91,57 @@
 </div>
 
 <section class="card top-gap">
+  <div class="section-head">
+    <div><h2>Redes potenciais para este imóvel</h2><p>Operadores da mesma praça que podem receber este ponto.</p></div>
+    <a class="btn" href="{{ url_for('networks', city=prop.city) }}">Ver redes da praça</a>
+  </div>
+
+  {% if network_matches %}
+  <div class="network-match-grid">
+    {% for match in network_matches %}
+      <a class="network-match-card" href="{{ url_for('network_detail', company_id=match.company.id) }}">
+        <div><strong>{{ match.company.name }}</strong><span>{{ match.company.segment or '' }}</span></div>
+        <div><span class="pill neutral">{{ match.status }}</span>{% if match.fit_score is not none %}<span class="score-sm">{{ '%.1f'|format(match.fit_score) }}</span>{% endif %}</div>
+      </a>
+    {% endfor %}
+  </div>
+  {% else %}
+    <p class="muted">Nenhuma rede foi vinculada manualmente a este imóvel ainda.</p>
+  {% endif %}
+
+  {% if suggested_networks %}
+  <details class="top-gap">
+    <summary>+ Vincular rede sugerida</summary>
+    <form method="post" action="{{ url_for('property_network_match_add', property_id=prop.id) }}" class="top-gap">
+      <div class="form-grid three">
+        <label>Rede
+          <select name="company_id" required>
+            <option value="">Selecione</option>
+            {% for company in suggested_networks %}
+              <option value="{{ company.id }}">{{ company.name }}{% if company.segment %} · {{ company.segment }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Fit do imóvel (0–10)<input name="fit_score" inputmode="decimal" placeholder="Ex.: 9.0"></label>
+        <label>Status
+          <select name="status">
+            <option>Potencial</option>
+            <option>Teaser a preparar</option>
+            <option>Apresentado</option>
+            <option>Em análise pela rede</option>
+            <option>Interesse demonstrado</option>
+            <option>Sem interesse</option>
+          </select>
+        </label>
+      </div>
+      <label>Observações<textarea name="notes" rows="2" placeholder="Por que esta rede combina com o ponto?"></textarea></label>
+      <button class="btn primary" type="submit">Vincular rede ao imóvel</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="card top-gap">
   <h2>Histórico</h2>
   {% for i in interactions %}
     <div class="timeline-row">
