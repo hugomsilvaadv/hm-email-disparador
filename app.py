@@ -1095,7 +1095,7 @@ with app.app_context():
 
     # Migração idempotente do pipeline inicial. A versão impede que futuros
     # deploys sobrescrevam alterações manuais feitas no CRM.
-    seed_version = "3"
+    seed_version = "4"
     seed_meta = db.session.get(AppMeta, "property_seed_version")
     if not seed_meta or seed_meta.value != seed_version:
         seed_path = os.path.join(os.path.dirname(__file__), "seed_properties.csv")
