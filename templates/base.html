@@ -10,7 +10,7 @@
 <header class="topbar">
   <div class="brand"><span class="hm">HM</span><div><strong>Perícia & Cálculos</strong><small>Prospecção B2B</small></div></div>
   {% if session.get('logged_in') %}
-  <nav><a href="{{ url_for('dashboard') }}">Painel</a><a href="{{ url_for('leads') }}">Leads</a><a href="{{ url_for('material') }}">Material</a><a href="{{ url_for('test_email') }}">Teste SMTP</a><a href="{{ url_for('logout') }}">Sair</a></nav>
+  <nav><a href="{{ url_for('dashboard') }}">Painel</a><a href="{{ url_for('leads') }}">Leads</a><a href="{{ url_for('ajt_units') }}">AJ/JT</a><a href="{{ url_for('material') }}">Material</a><a href="{{ url_for('test_email') }}">Teste Resend</a><a href="{{ url_for('logout') }}">Sair</a></nav>
   {% endif %}
 </header>
 <main class="container">
