@@ -832,13 +832,28 @@ def export_properties():
 
 with app.app_context():
     db.create_all()
+    if Property.query.count() == 0:
+        seed_path = os.path.join(os.path.dirname(__file__), "seed_properties.csv")
+        if os.path.exists(seed_path):
+            try:
+                with open(seed_path, "r", encoding="utf-8-sig", newline="") as seed_file:
+                    created, updated, skipped = import_rows(csv.DictReader(seed_file))
+                app.logger.info(
+                    "Seed Street Mall carregado: %d novos, %d atualizados, %d ignorados.",
+                    created, updated, skipped,
+                )
+            except Exception as exc:
+                app.logger.error("Falha ao carregar seed local de imóveis: %s", exc)
+
     seed_b64 = os.environ.get("PROPERTIES_SEED_CSV_B64", "").strip()
     if seed_b64 and Property.query.count() == 0:
         try:
             seed_csv = base64.b64decode(seed_b64).decode("utf-8-sig")
             import_rows(csv.DictReader(io.StringIO(seed_csv)))
         except Exception as exc:
-            app.logger.error("Falha ao carregar seed de imóveis: %s", exc)
+            app.logger.error("Falha ao carregar seed de imóveis por variável: %s", exc)
+
+    app.logger.info("Street Mall database ready: %d imóveis.", Property.query.count())
 
 
 if __name__ == "__main__":
