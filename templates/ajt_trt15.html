@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}TRT-15 · Vinculações AJ/JT{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>TRT-15 · Vinculações por Vara</h1>
+    <p>Um contato por Secretaria Conjunta, com acompanhamento individual da aprovação em cada Vara.</p>
+  </div>
+  <a class="btn" href="{{ url_for('ajt_units') }}">Voltar ao AJ/JT</a>
+</div>
+
+<div class="grid four">
+  <div class="card metric"><span>Varas mapeadas</span><strong>{{ total_varas }}</strong></div>
+  <div class="card metric"><span>Pedidos registrados</span><strong>{{ requested_varas }}</strong></div>
+  <div class="card metric"><span>Vinculadas</span><strong>{{ linked_varas }}</strong></div>
+  <div class="card metric"><span>Secretarias</span><strong>{{ secretariats|length }}</strong></div>
+</div>
+
+{% for sec in secretariats %}
+<section class="card top-gap" id="sec-{{ sec.name|replace(' ','-') }}">
+  <div class="page-head">
+    <div>
+      <h2 style="margin:0">Secretaria Conjunta de {{ sec.name }}</h2>
+      <p>{{ sec.email }}</p>
+    </div>
+    <div class="actions" style="margin:0">
+      <a class="btn small" href="{{ url_for('ajt_trt15_secretariat_preview', secretariat=sec.name) }}">Prévia do e-mail</a>
+      <form method="post" action="{{ url_for('ajt_trt15_mark_sent', secretariat=sec.name) }}">
+        <button class="btn small" type="submit">Marcar pedido como enviado</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="grid four">
+    <div class="status-row"><span>Total</span><b>{{ sec.total }}</b></div>
+    <div class="status-row"><span>Não solicitadas</span><b>{{ sec.not_requested }}</b></div>
+    <div class="status-row"><span>Em análise</span><b>{{ sec.pending }}</b></div>
+    <div class="status-row"><span>Vinculadas</span><b class="ok">{{ sec.linked }}</b></div>
+  </div>
+
+  <div class="table-wrap top-gap">
+    <table>
+      <thead><tr><th>Vara</th><th>Cidade</th><th>Status de vinculação</th><th>Pedido</th><th>Vinculação</th></tr></thead>
+      <tbody>
+      {% for vara in sec.varas %}
+        <tr>
+          <td><strong>{{ vara.vara }}</strong></td>
+          <td>{{ vara.city }}</td>
+          <td>
+            <form method="post" action="{{ url_for('ajt_trt15_update_vara', vara_id=vara.id) }}">
+              <select name="status" onchange="this.form.submit()">
+                {% for s in status_options %}<option value="{{ s }}" {% if vara.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+              </select>
+            </form>
+          </td>
+          <td>{{ vara.requested_at.strftime('%d/%m/%Y') if vara.requested_at else '—' }}</td>
+          <td>{{ vara.linked_at.strftime('%d/%m/%Y') if vara.linked_at else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+
+<div class="card top-gap">
+  <h2>Como interpretar</h2>
+  <p class="muted">O e-mail é dirigido à Secretaria Conjunta uma única vez. O resultado é acompanhado Vara por Vara, pois o recebimento pela Secretaria não equivale à aprovação da vinculação pelo magistrado responsável.</p>
+</div>
+{% endblock %}
