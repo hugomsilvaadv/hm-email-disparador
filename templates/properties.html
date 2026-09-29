@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Imóveis · Street Mall{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Pipeline de imóveis</h1><p>Pesquisa, enriquecimento, validação e contato com proprietários/anunciantes.</p></div>
+  <a class="btn primary" href="{{ url_for('property_new') }}">+ Novo imóvel</a>
+</div>
+
+<section class="card import-box">
+  <div class="section-head"><div><h2>Importar base atual</h2><p>Aceita XLSX com a aba <strong>Pipeline Terrenos</strong> ou CSV com os mesmos cabeçalhos.</p></div></div>
+  <form method="post" enctype="multipart/form-data">
+    <label>Planilha / CSV<input type="file" name="file" accept=".xlsx,.csv" required></label>
+    <button class="btn primary" type="submit">Importar / atualizar</button>
+    <a class="btn" href="{{ url_for('export_properties') }}">Exportar CSV</a>
+  </form>
+</section>
+
+<form class="filters top-gap" method="get">
+  <input name="q" value="{{ request.args.get('q','') }}" placeholder="Buscar endereço, bairro ou cidade">
+  <select name="city"><option value="">Todas as cidades</option>{% for city in cities %}<option value="{{ city }}" {% if request.args.get('city')==city %}selected{% endif %}>{{ city }}</option>{% endfor %}</select>
+  <select name="priority"><option value="">Todas prioridades</option>{% for item in priority_options %}<option value="{{ item }}" {% if request.args.get('priority')==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select>
+  <select name="status"><option value="">Todos status</option>{% for item in status_options %}<option value="{{ item }}" {% if request.args.get('status')==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Score</th><th>Cidade</th><th>Imóvel</th><th>Área</th><th>Preço</th><th>R$/m²</th><th>Prioridade</th><th>Status</th><th>Contato</th><th></th></tr></thead>
+  <tbody>
+  {% for prop in properties %}
+    <tr>
+      <td><span class="score-sm">{{ '%.1f'|format(prop.score) if prop.score is not none else '—' }}</span></td>
+      <td><strong>{{ prop.display_city }}</strong></td>
+      <td>{{ prop.address }}<small>{{ prop.suggested_format or prop.listing_type or '' }}</small></td>
+      <td>{{ '{:,.0f}'.format(prop.area_m2).replace(',', '.') ~ ' m²' if prop.area_m2 else '—' }}</td>
+      <td>{{ 'R$ {:,.0f}'.format(prop.asking_price).replace(',', '.') if prop.asking_price else '—' }}</td>
+      <td>{{ 'R$ {:,.0f}'.format(prop.price_per_m2).replace(',', '.') if prop.price_per_m2 else '—' }}</td>
+      <td><span class="pill priority-{{ prop.priority|lower|replace('é','e') }}">{{ prop.priority }}</span></td>
+      <td><span class="pill neutral">{{ prop.status }}</span><small>{{ prop.listing_status }}</small></td>
+      <td>{{ 'Sim' if prop.has_contact else 'Pendente' }}</td>
+      <td><a class="btn small" href="{{ url_for('property_detail', property_id=prop.id) }}">Abrir</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="10" class="empty">Nenhum imóvel encontrado. Importe a base ou cadastre o primeiro.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
