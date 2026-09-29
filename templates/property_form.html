@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar imóvel' if prop else 'Novo imóvel' }} · Street Mall{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ 'Editar imóvel' if prop else 'Novo imóvel' }}</h1><p>Ficha técnica, comercial e de análise.</p></div>
+  {% if prop %}<a class="btn" href="{{ url_for('property_detail', property_id=prop.id) }}">Voltar à ficha</a>{% else %}<a class="btn" href="{{ url_for('properties') }}">Voltar</a>{% endif %}
+</div>
+
+<form method="post" class="stack">
+<section class="card">
+  <h2>Identificação</h2>
+  <div class="form-grid three">
+    <label>Cidade<input name="city" value="{{ prop.city if prop else '' }}" required></label>
+    <label>UF<input name="state" maxlength="2" value="{{ prop.state if prop else '' }}"></label>
+    <label>Bairro<input name="neighborhood" value="{{ prop.neighborhood if prop else '' }}"></label>
+  </div>
+  <label>Endereço / eixo<input name="address" value="{{ prop.address if prop else '' }}" required></label>
+  <div class="form-grid three">
+    <label>Área (m²)<input name="area_m2" inputmode="decimal" value="{{ prop.area_m2 if prop and prop.area_m2 is not none else '' }}"></label>
+    <label>Preço pedido (R$)<input name="asking_price" inputmode="decimal" value="{{ prop.asking_price if prop and prop.asking_price is not none else '' }}"></label>
+    <label>Locação mensal (R$)<input name="rent_price" inputmode="decimal" value="{{ prop.rent_price if prop and prop.rent_price is not none else '' }}"></label>
+  </div>
+  <div class="form-grid three">
+    <label>R$/m²<input name="price_per_m2" inputmode="decimal" value="{{ prop.price_per_m2 if prop and prop.price_per_m2 is not none else '' }}"></label>
+    <label>Tipo / anúncio<input name="listing_type" value="{{ prop.listing_type if prop else '' }}"></label>
+    <label>Formato sugerido<input name="suggested_format" value="{{ prop.suggested_format if prop else '' }}"></label>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Pipeline e avaliação</h2>
+  <div class="form-grid three">
+    <label>Prioridade<select name="priority">{% for item in priority_options %}<option value="{{ item }}" {% if (prop and prop.priority==item) or (not prop and item=='Média') %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+    <label>Status<select name="status">{% for item in status_options %}<option value="{{ item }}" {% if prop and prop.status==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+    <label>Status do anúncio<select name="listing_status">{% for item in listing_status_options %}<option value="{{ item }}" {% if prop and prop.listing_status==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+  </div>
+  <div class="form-grid six">
+    <label>Nota preliminar<input name="preliminary_score" inputmode="decimal" value="{{ prop.preliminary_score if prop and prop.preliminary_score is not none else '' }}"></label>
+    <label>Localização<input name="location_score" inputmode="decimal" value="{{ prop.location_score if prop and prop.location_score is not none else '' }}"></label>
+    <label>Acesso<input name="access_score" inputmode="decimal" value="{{ prop.access_score if prop and prop.access_score is not none else '' }}"></label>
+    <label>Geometria<input name="geometry_score" inputmode="decimal" value="{{ prop.geometry_score if prop and prop.geometry_score is not none else '' }}"></label>
+    <label>Economia<input name="economics_score" inputmode="decimal" value="{{ prop.economics_score if prop and prop.economics_score is not none else '' }}"></label>
+    <label>Catchment<input name="catchment_score" inputmode="decimal" value="{{ prop.catchment_score if prop and prop.catchment_score is not none else '' }}"></label>
+  </div>
+  <div class="form-grid three">
+    <label>Risco (0–10)<input name="risk_score" inputmode="decimal" value="{{ prop.risk_score if prop and prop.risk_score is not none else '' }}"></label>
+    <label>Testada (m)<input name="frontage_m" inputmode="decimal" value="{{ prop.frontage_m if prop and prop.frontage_m is not none else '' }}"></label>
+    <label class="checkline"><input type="checkbox" name="corner_lot" {% if prop and prop.corner_lot %}checked{% endif %}> Terreno de esquina</label>
+  </div>
+  <label>Por que interessa<textarea name="rationale" rows="3">{{ prop.rationale if prop else '' }}</textarea></label>
+  <label>Riscos / validar<textarea name="risks" rows="3">{{ prop.risks if prop else '' }}</textarea></label>
+  <label>Próxima ação<textarea name="next_action" rows="2">{{ prop.next_action if prop else '' }}</textarea></label>
+</section>
+
+<section class="card">
+  <h2>Diligência e enriquecimento</h2>
+  <div class="form-grid three">
+    <label>Zoneamento / uso<input name="zoning" value="{{ prop.zoning if prop else '' }}"></label>
+    <label>Proprietário identificado<input name="owner_name" value="{{ prop.owner_name if prop else '' }}"></label>
+    <label>Matrícula<input name="registry_number" value="{{ prop.registry_number if prop else '' }}"></label>
+  </div>
+  <label>Acessos / retorno / viário<textarea name="access_notes" rows="2">{{ prop.access_notes if prop else '' }}</textarea></label>
+  <label>Estacionamento / implantação<textarea name="parking_notes" rows="2">{{ prop.parking_notes if prop else '' }}</textarea></label>
+  <label>Infraestrutura / topografia / drenagem<textarea name="infrastructure_notes" rows="2">{{ prop.infrastructure_notes if prop else '' }}</textarea></label>
+  <div class="form-grid three">
+    <label>Latitude<input name="latitude" value="{{ prop.latitude if prop and prop.latitude is not none else '' }}"></label>
+    <label>Longitude<input name="longitude" value="{{ prop.longitude if prop and prop.longitude is not none else '' }}"></label>
+    <label>Data da pesquisa<input type="date" name="research_date" value="{{ prop.research_date.isoformat() if prop and prop.research_date else '' }}"></label>
+  </div>
+  <label>Fonte / anúncio<input name="source_url" value="{{ prop.source_url if prop else '' }}"></label>
+  <label>Observações internas<textarea name="notes" rows="3">{{ prop.notes if prop else '' }}</textarea></label>
+</section>
+
+<div class="actions"><button class="btn primary" type="submit">Salvar ficha</button></div>
+</form>
+{% endblock %}
