@@ -18,7 +18,17 @@
 <section class="card top-gap">
   <h2>Cobertura declarada — São Paulo</h2>
   <p><strong>{{ sp_interest_scope }}</strong></p>
-  <p class="muted">TRT-15: {{ trt15_groups }} Secretarias Conjuntas oficiais cadastradas, cobrindo as Varas do interior e litoral sob a 15ª Região. Cidades da sua lista que pertencem ao TRT-2 serão tratadas em base separada para não misturar procedimentos e contatos.</p>
+  <div class="grid two top-gap">
+    <div>
+      <strong>TRT-15</strong>
+      <p class="muted">{{ trt15_groups }} Secretarias Conjuntas oficiais cadastradas, cobrindo as Varas do interior e litoral sob a 15ª Região. Os contatos são agrupados para evitar repetição quando várias Varas usam a mesma caixa institucional.</p>
+    </div>
+    <div>
+      <strong>TRT-2</strong>
+      <p class="muted">{{ trt2_count }} municípios da sua lista pertencem ao TRT-2. Eles ficam em fluxo regional separado, porque a validação do cadastro AJ/JT é feita pela estrutura própria do TRT-2.</p>
+      <details><summary>Ver municípios do TRT-2</summary><p class="muted">{{ trt2_municipalities|join(', ') }}</p></details>
+    </div>
+  </div>
 </section>
 
 <div class="grid two top-gap">
