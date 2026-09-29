@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}{{ company.name }} · Redes{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">{{ company.segment or 'Rede' }}</div><h1>{{ company.name }}</h1><p>{{ company.point_profile or 'Critério de ponto ainda a validar' }}</p></div>
+  <div class="actions">
+    {% if company.source_url %}<a class="btn" href="{{ company.source_url }}" target="_blank" rel="noopener">Abrir fonte</a>{% endif %}
+    <a class="btn" href="{{ url_for('networks') }}">Voltar às redes</a>
+  </div>
+</div>
+
+<div class="grid two">
+  <section class="card">
+    <h2>Executivos / referências</h2>
+    {% for exec in company.executives %}
+      <div class="exec-card">
+        <strong>{{ exec.name }}</strong>
+        <span>{{ exec.role or 'Função a confirmar' }}</span>
+        {% if exec.email %}<span>{{ exec.email }}</span>{% endif %}
+        {% if exec.contact_channel %}<span>{{ exec.contact_channel }}</span>{% endif %}
+        {% if exec.linkedin_url %}<a class="btn small top-gap" href="{{ exec.linkedin_url }}" target="_blank" rel="noopener">LinkedIn / canal</a>{% endif %}
+      </div>
+    {% else %}<p class="muted">Executivo nominal ainda não identificado.</p>{% endfor %}
+  </section>
+
+  <section class="card">
+    <h2>Critério imobiliário</h2>
+    <div class="status-row"><span>Perfil de ponto</span><b>{{ company.point_profile or 'A confirmar' }}</b></div>
+    <div class="status-row"><span>Modelo provável</span><b>{{ company.probable_model or 'A confirmar' }}</b></div>
+    <div class="status-row"><span>Praças mapeadas</span><b>{{ company.markets|length }}</b></div>
+    <div class="status-row"><span>Imóveis vinculados</span><b>{{ matches|length }}</b></div>
+  </section>
+</div>
+
+<section class="card top-gap">
+  <h2>Leitura por praça</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Praça</th><th>Prioridade</th><th>Aderência</th><th>Status</th><th>Próxima ação</th><th>Observações</th></tr></thead>
+    <tbody>
+    {% for market in company.markets %}
+      <tr>
+        <td><strong>{{ market.city }}/{{ market.state }}</strong></td>
+        <td><span class="pill">{{ market.priority or '—' }}</span></td>
+        <td>{{ ('%.1f/5'|format(market.adherence_score)) if market.adherence_score is not none else '—' }}</td>
+        <td>{{ market.status or '—' }}</td>
+        <td>{{ market.next_action or '—' }}</td>
+        <td>{{ market.notes or '—' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card top-gap">
+  <div class="section-head"><div><h2>Imóveis apresentados / compatíveis</h2><p>Conecte a tese comercial da rede ao pipeline imobiliário.</p></div></div>
+  {% if matches %}
+    <div class="compact-list">
+    {% for match in matches %}
+      <a class="compact-row" href="{{ url_for('property_detail', property_id=match.property.id) }}">
+        <div><strong>{{ match.property.display_city }}</strong><span>{{ match.property.address }} · {{ match.status }}</span></div>
+        <div class="score">{{ '%.1f'|format(match.fit_score) if match.fit_score is not none else '—' }}</div>
+      </a>
+    {% endfor %}
+    </div>
+  {% else %}<p class="muted">Nenhum imóvel vinculado ainda.</p>{% endif %}
+
+  {% if suggested_properties %}
+  <details class="top-gap">
+    <summary>+ Vincular imóvel do pipeline</summary>
+    <form method="post" action="{{ url_for('network_match_add', company_id=company.id) }}" class="top-gap">
+      <div class="form-grid three">
+        <label>Imóvel<select name="property_id" required><option value="">Selecione</option>{% for prop in suggested_properties %}<option value="{{ prop.id }}">{{ prop.display_city }} · {{ prop.address }} · nota {{ prop.score if prop.score is not none else '—' }}</option>{% endfor %}</select></label>
+        <label>Fit (0–10)<input name="fit_score" inputmode="decimal"></label>
+        <label>Status<select name="status"><option>Potencial</option><option>Teaser a preparar</option><option>Apresentado</option><option>Em análise pela rede</option><option>Interesse demonstrado</option><option>Sem interesse</option></select></label>
+      </div>
+      <label>Observações<textarea name="notes" rows="2"></textarea></label>
+      <button class="btn primary" type="submit">Vincular imóvel</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+{% endblock %}
