@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Prévia AJ/JT · HM Disparador{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Prévia AJ/JT</h1>
+    <p>{{ unit.unit }} · {{ unit.city }} · {{ unit.tribunal }}</p>
+  </div>
+  <a class="btn" href="{{ url_for('ajt_units') }}">Voltar</a>
+</div>
+
+<div class="grid two">
+  <section class="card">
+    <h2>Destinatário</h2>
+    <div class="status-row"><span>Unidade</span><b>{{ unit.unit }}</b></div>
+    <div class="status-row"><span>E-mail</span><b>{{ unit.email }}</b></div>
+    <div class="status-row"><span>Status</span><b>{{ unit.status }}</b></div>
+    <div class="status-row"><span>Currículo</span><b class="{{ 'ok' if curriculum else 'warn' }}">{{ curriculum.filename if curriculum else 'Pendente' }}</b></div>
+  </section>
+  <section class="card">
+    <h2>Segurança</h2>
+    <p><strong>Envio AJ/JT ainda bloqueado.</strong></p>
+    <p class="muted">Esta tela serve apenas para revisar a comunicação antes de habilitarmos o envio institucional.</p>
+  </section>
+</div>
+
+<section class="card email-preview top-gap">
+  <h2>{{ subject }}</h2>
+  <hr>
+  <pre>{{ body }}</pre>
+</section>
+{% endblock %}
