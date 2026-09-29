@@ -348,6 +348,17 @@ class AjtVaraLink(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class AjtSendLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tribunal = db.Column(db.String(80), default="TRT-15", index=True)
+    secretariat = db.Column(db.String(120), nullable=False, index=True)
+    recipient = db.Column(db.String(240), nullable=False, index=True)
+    subject = db.Column(db.String(300), nullable=False)
+    result = db.Column(db.String(40), nullable=False, index=True)
+    detail = db.Column(db.Text)
+    sent_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+
+
 batch_state = {"running": False, "total": 0, "done": 0, "errors": 0, "started_at": None}
 batch_lock = threading.Lock()
 
@@ -453,6 +464,15 @@ def sent_today_count():
     now = datetime.now(timezone.utc)
     start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
     return SendLog.query.filter(SendLog.sent_at >= start, SendLog.result == "sent").count()
+
+
+def ajt_sent_today_count():
+    now = datetime.now(timezone.utc)
+    start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+    return AjtSendLog.query.filter(
+        AjtSendLog.sent_at >= start,
+        AjtSendLog.result == "sent",
+    ).count()
 
 
 def send_email_for_lead(lead):
@@ -693,6 +713,11 @@ def trt15_secretariat_overview():
         rows = AjtVaraLink.query.filter_by(secretariat=secretariat).order_by(
             AjtVaraLink.city.asc(), AjtVaraLink.vara.asc()
         ).all()
+        last_send = AjtSendLog.query.filter_by(
+            tribunal="TRT-15",
+            secretariat=secretariat,
+            result="sent",
+        ).order_by(AjtSendLog.sent_at.desc()).first()
         overview.append({
             "name": secretariat,
             "email": _trt15_contact_for(secretariat),
@@ -701,8 +726,130 @@ def trt15_secretariat_overview():
             "linked": sum(1 for row in rows if row.status == "Vinculado"),
             "pending": sum(1 for row in rows if row.status in {"Solicitação enviada", "Aguardando análise"}),
             "not_requested": sum(1 for row in rows if row.status == "Não solicitado"),
+            "last_send": last_send.sent_at if last_send else None,
         })
     return overview
+
+
+def build_trt15_secretariat_message(secretariat):
+    rows = AjtVaraLink.query.filter_by(secretariat=secretariat).filter(
+        AjtVaraLink.status != "Não atuar"
+    ).order_by(AjtVaraLink.city.asc(), AjtVaraLink.vara.asc()).all()
+    vara_list = "\n".join(f"- {row.vara}" for row in rows)
+    subject = "Disponibilidade para atuação pericial e solicitação de vinculação — AJ/JT"
+    body = f"""À Divisão de Atendimento e Administração da Secretaria Conjunta de {secretariat},
+
+Prezados(as),
+
+Meu nome é Hugo Mendes da Silva, advogado inscrito na OAB/SP nº 437.005 e OAB/MG nº 161.454, pós-graduado em Direito do Trabalho e profissional cadastrado no Sistema AJ/JT da Justiça do Trabalho.
+
+Atuo tecnicamente com cálculos trabalhistas, liquidação de sentença, conferência de cálculos, atualização de créditos e elaboração de cálculos no PJe-Calc.
+
+Venho apresentar minha disponibilidade para atuação como perito calculista e, se cabível, solicitar o encaminhamento do pedido de vinculação às Varas do Trabalho abaixo relacionadas:
+
+{vara_list}
+
+Encaminho, em anexo, meu currículo pericial para apreciação.
+
+Permaneço à disposição para prestar informações adicionais ou cumprir eventual procedimento específico exigido pelas respectivas unidades.
+
+Atenciosamente,
+
+Hugo Mendes da Silva
+Perito calculista cadastrado no Sistema AJ/JT
+OAB/SP 437.005 | OAB/MG 161.454
+HM Perícia & Cálculos
+hugo@hmpericia.com.br
+(31) 99587-1227
+"""
+    return subject, body, rows
+
+
+def send_trt15_secretariat_email(secretariat):
+    if secretariat not in TRT15_SECRETARIAT_CITIES:
+        raise RuntimeError("Secretaria Conjunta inválida.")
+    if not env_bool("AJT_SEND_ENABLED", False):
+        raise RuntimeError("Envios AJ/JT estão bloqueados. Ative AJT_SEND_ENABLED somente após revisar currículo e mensagem.")
+    if not resend_config_ready():
+        raise RuntimeError("RESEND_API_KEY/FROM_EMAIL ainda não estão configurados.")
+
+    curriculum = AjtCurriculum.query.order_by(AjtCurriculum.id.desc()).first()
+    if not curriculum:
+        raise RuntimeError("Currículo pericial não cadastrado no módulo AJ/JT.")
+
+    recipient = _trt15_contact_for(secretariat)
+    if not recipient or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", recipient):
+        raise RuntimeError("E-mail institucional da Secretaria não está válido.")
+
+    previous = AjtSendLog.query.filter_by(
+        tribunal="TRT-15",
+        secretariat=secretariat,
+        recipient=recipient,
+        result="sent",
+    ).first()
+    if previous:
+        raise RuntimeError(
+            f"Já existe envio concluído para esta Secretaria em {previous.sent_at.strftime('%d/%m/%Y')}. "
+            "O sistema bloqueia duplicidade; eventual reenvio deve ser tratado como follow-up."
+        )
+
+    daily_limit = max(1, int(os.environ.get("AJT_DAILY_LIMIT", "2")))
+    if ajt_sent_today_count() >= daily_limit:
+        raise RuntimeError(f"Limite AJ/JT diário de {daily_limit} Secretaria(s) atingido.")
+
+    subject, body, rows = build_trt15_secretariat_message(secretariat)
+    html_body = (
+        "<!doctype html><html><body style='font-family:Arial,Helvetica,sans-serif;color:#222;background:#fff'>"
+        "<div style='max-width:720px;margin:auto;padding:20px'>"
+        + text_to_html(body)
+        + "</div></body></html>"
+    )
+
+    try:
+        send_via_resend(
+            recipient=recipient,
+            subject=subject,
+            text_body=body,
+            html_body=html_body,
+            attachments=[{"filename": curriculum.filename, "data": curriculum.data}],
+        )
+    except Exception as exc:
+        db.session.add(AjtSendLog(
+            tribunal="TRT-15",
+            secretariat=secretariat,
+            recipient=recipient,
+            subject=subject,
+            result="error",
+            detail=str(exc)[:2000],
+        ))
+        db.session.commit()
+        raise
+
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        if row.status == "Não solicitado":
+            row.status = "Solicitação enviada"
+        if not row.requested_at:
+            row.requested_at = now
+        row.updated_at = now
+
+    contact = AjtUnit.query.filter(
+        AjtUnit.tribunal == "TRT-15",
+        AjtUnit.unit == f"Secretaria Conjunta TRT-15 — {secretariat}",
+    ).first()
+    if contact:
+        contact.status = "Apresentação enviada"
+        contact.last_contact = now
+
+    db.session.add(AjtSendLog(
+        tribunal="TRT-15",
+        secretariat=secretariat,
+        recipient=recipient,
+        subject=subject,
+        result="sent",
+    ))
+    db.session.commit()
+    return recipient, len(rows)
 
 
 @app.get("/health")
@@ -1001,30 +1148,14 @@ def ajt_trt15_mark_sent(secretariat):
 def ajt_trt15_secretariat_preview(secretariat):
     if secretariat not in TRT15_SECRETARIAT_CITIES:
         return "Secretaria não encontrada.", 404
-    rows = AjtVaraLink.query.filter_by(secretariat=secretariat).filter(
-        AjtVaraLink.status != "Não atuar"
-    ).order_by(AjtVaraLink.city.asc(), AjtVaraLink.vara.asc()).all()
+    subject, body, rows = build_trt15_secretariat_message(secretariat)
     contact_email = _trt15_contact_for(secretariat)
-    subject = "Solicitação de vinculação para atuação pericial — Sistema AJ/JT"
-    vara_list = "\n".join(f"- {row.vara}" for row in rows)
-    body = f"""À Divisão de Atendimento e Administração da Secretaria Conjunta de {secretariat},
-
-Prezados(as),
-
-Meu nome é Hugo Mendes. Sou profissional cadastrado no Sistema AJ/JT da Justiça do Trabalho e atuo com cálculos trabalhistas, liquidação de sentença, conferência de cálculos e PJe-Calc.
-
-Manifesto meu interesse e disponibilidade para atuação como perito calculista perante as Varas do Trabalho abaixo relacionadas e, se cabível, solicito o encaminhamento do pedido de vinculação às respectivas unidades:
-
-{vara_list}
-
-Encaminho meu currículo pericial para apreciação e permaneço à disposição para quaisquer informações adicionais.
-
-Atenciosamente,
-Hugo Mendes
-Perito cadastrado no Sistema AJ/JT
-HM Perícia & Cálculos
-E-mail: hugo@hmpericia.com.br
-"""
+    previous = AjtSendLog.query.filter_by(
+        tribunal="TRT-15",
+        secretariat=secretariat,
+        recipient=contact_email,
+        result="sent",
+    ).order_by(AjtSendLog.sent_at.desc()).first()
     return render_template(
         "ajt_secretariat_preview.html",
         secretariat=secretariat,
@@ -1033,7 +1164,26 @@ E-mail: hugo@hmpericia.com.br
         body=body,
         varas=rows,
         curriculum=AjtCurriculum.query.order_by(AjtCurriculum.id.desc()).first(),
+        send_enabled=env_bool("AJT_SEND_ENABLED", False),
+        sent_today=ajt_sent_today_count(),
+        daily_limit=max(1, int(os.environ.get("AJT_DAILY_LIMIT", "2"))),
+        previous=previous,
     )
+
+
+@app.post("/ajt/trt15/secretaria/<secretariat>/send")
+@login_required
+def ajt_trt15_send_secretariat(secretariat):
+    try:
+        recipient, total_varas = send_trt15_secretariat_email(secretariat)
+        flash(
+            f"E-mail institucional enviado para {recipient}. "
+            f"{total_varas} Vara(s) ficaram registradas como solicitação enviada.",
+            "success",
+        )
+    except Exception as exc:
+        flash(f"Envio AJ/JT não realizado: {exc}", "danger")
+    return redirect(url_for("ajt_trt15_secretariat_preview", secretariat=secretariat))
 
 
 @app.post("/ajt/<int:unit_id>/status")
