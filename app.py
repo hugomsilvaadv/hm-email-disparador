@@ -466,13 +466,16 @@ def sent_today_count():
     return SendLog.query.filter(SendLog.sent_at >= start, SendLog.result == "sent").count()
 
 
-def ajt_sent_today_count():
+def ajt_sent_today_count(tribunal=None):
     now = datetime.now(timezone.utc)
     start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-    return AjtSendLog.query.filter(
+    query = AjtSendLog.query.filter(
         AjtSendLog.sent_at >= start,
         AjtSendLog.result == "sent",
-    ).count()
+    )
+    if tribunal:
+        query = query.filter(AjtSendLog.tribunal == tribunal)
+    return query.count()
 
 
 def send_email_for_lead(lead):
@@ -803,9 +806,12 @@ def send_trt15_secretariat_email(secretariat):
             "O sistema bloqueia duplicidade; eventual reenvio deve ser tratado como follow-up."
         )
 
-    daily_limit = max(1, int(os.environ.get("AJT_DAILY_LIMIT", "2")))
-    if ajt_sent_today_count() >= daily_limit:
-        raise RuntimeError(f"Limite AJ/JT diário de {daily_limit} Secretaria(s) atingido.")
+    daily_limit = max(
+        1,
+        int(os.environ.get("AJT_TRT15_DAILY_LIMIT", os.environ.get("AJT_DAILY_LIMIT", "3"))),
+    )
+    if ajt_sent_today_count("TRT-15") >= daily_limit:
+        raise RuntimeError(f"Limite TRT-15 diário de {daily_limit} Secretaria(s) atingido.")
 
     subject, body, rows = build_trt15_secretariat_message(secretariat)
     html_body = (
@@ -815,8 +821,9 @@ def send_trt15_secretariat_email(secretariat):
         + "</div></body></html>"
     )
 
+    provider_response = None
     try:
-        send_via_resend(
+        provider_response = send_via_resend(
             recipient=recipient,
             subject=subject,
             text_body=body,
@@ -851,12 +858,17 @@ def send_trt15_secretariat_email(secretariat):
         contact.status = "Apresentação enviada"
         contact.last_contact = now
 
+    provider_id = ""
+    if isinstance(provider_response, dict):
+        provider_id = str(provider_response.get("id") or "")
+
     db.session.add(AjtSendLog(
         tribunal="TRT-15",
         secretariat=secretariat,
         recipient=recipient,
         subject=subject,
         result="sent",
+        detail=(f"Resend ID: {provider_id}" if provider_id else None),
     ))
     db.session.commit()
     return recipient, len(rows)
