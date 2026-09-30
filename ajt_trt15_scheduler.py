@@ -44,3 +44,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Railway deploy trigger: scheduler activation
