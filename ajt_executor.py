@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timezone
 
 from app import app, send_trt15_secretariat_email
-from ajt_trt3 import send_trt3_forum_email
+from ajt_trt3 import send_trt3_individual_email
 
 
 def dispatch_once():
@@ -28,7 +28,7 @@ def dispatch_once():
             if tribunal == "TRT-15":
                 recipient, total_varas = send_trt15_secretariat_email(secretariat)
             elif tribunal == "TRT-3":
-                recipient, total_varas, provider_id = send_trt3_forum_email(secretariat)
+                recipient, total_varas, provider_id = send_trt3_individual_email(secretariat)
             else:
                 raise RuntimeError(f"Tribunal ainda não suportado pelo executor: {tribunal}")
 
