@@ -15,6 +15,21 @@ from app import (
     text_to_html,
 )
 
+TRT3_INDIVIDUAL_UNITS = {
+    "1ª Vara do Trabalho de Sete Lagoas": {"city":"Sete Lagoas","email":"vt1.setelagoas@trt3.jus.br","forum_already_contacted":True},
+    "2ª Vara do Trabalho de Sete Lagoas": {"city":"Sete Lagoas","email":"vt2.setelagoas@trt3.jus.br","forum_already_contacted":True},
+    "3ª Vara do Trabalho de Sete Lagoas": {"city":"Sete Lagoas","email":"vt3.setelagoas@trt3.jus.br","forum_already_contacted":True},
+    "1ª Vara do Trabalho de Contagem": {"city":"Contagem","email":"vt1.contagem@trt3.jus.br"},
+    "2ª Vara do Trabalho de Contagem": {"city":"Contagem","email":"vt2.contagem@trt3.jus.br"},
+    "3ª Vara do Trabalho de Contagem": {"city":"Contagem","email":"vt3.contagem@trt3.jus.br"},
+    "4ª Vara do Trabalho de Contagem": {"city":"Contagem","email":"vt4.contagem@trt3.jus.br"},
+    "5ª Vara do Trabalho de Contagem": {"city":"Contagem","email":"vt5.contagem@trt3.jus.br"},
+    "6ª Vara do Trabalho de Contagem": {"city":"Contagem","email":"vt6.contagem@trt3.jus.br"},
+    "Vara do Trabalho de Santa Luzia": {"city":"Santa Luzia","email":"vt.santaluzia@trt3.jus.br"},
+}
+
+TRT3_BATCH_1 = list(TRT3_INDIVIDUAL_UNITS.keys())
+
 TRT3_FORUMS = {
     "Sete Lagoas": {
         "unit": "Foro do Trabalho de Sete Lagoas",
@@ -209,3 +224,79 @@ def send_trt3_forum_email(secretariat):
     db.session.commit()
 
     return recipient, len(rows), provider_id
+
+
+def build_trt3_individual_message(unit_name):
+    config = TRT3_INDIVIDUAL_UNITS.get(unit_name)
+    if not config:
+        raise RuntimeError("Unidade TRT-3 fora do lote autorizado.")
+    row = AjtVaraLink.query.filter_by(tribunal="TRT-3", vara=unit_name).first()
+    if not row:
+        row = AjtVaraLink(tribunal="TRT-3", secretariat=unit_name, contact_email=config["email"], city=config["city"], vara=unit_name, status="Não solicitado")
+        db.session.add(row)
+    else:
+        row.secretariat, row.contact_email, row.city = unit_name, config["email"], config["city"]
+    db.session.commit()
+    prior = ""
+    if config.get("forum_already_contacted"):
+        prior = "\nA apresentação institucional já foi anteriormente encaminhada ao Foro do Trabalho de Sete Lagoas. Neste contato, apresento especificamente minha disponibilidade para atuação perante esta Vara.\n"
+    subject = "Disponibilidade para atuação pericial — AJ/JT"
+    body = """À {unit},
+
+Prezados(as),
+
+Meu nome é Hugo Mendes da Silva, advogado inscrito na OAB/SP nº 437.005 e OAB/MG nº 161.454, pós-graduado em Direito do Trabalho e profissional regularmente cadastrado no Sistema AJ/JT e no perfil Perito do PJe do TRT da 3ª Região.
+{prior}
+Atuo tecnicamente com cálculos trabalhistas, liquidação de sentença, conferência de cálculos, atualização de créditos e elaboração de cálculos no PJe-Calc.
+
+Venho apresentar minha disponibilidade para atuação como perito calculista perante esta unidade, para futuras nomeações, conforme a necessidade do Juízo.
+
+Encaminho, em anexo, meu currículo pericial para apreciação.
+
+Permaneço à disposição para quaisquer informações adicionais.
+
+Atenciosamente,
+
+Hugo Mendes da Silva
+Perito calculista cadastrado no Sistema AJ/JT
+OAB/SP 437.005 | OAB/MG 161.454
+HM Perícia & Cálculos
+hugo@hmpericia.com.br
+(31) 99587-1227
+""".format(unit=unit_name, prior=prior)
+    return subject, body, row, config
+
+
+def send_trt3_individual_email(unit_name):
+    if unit_name not in TRT3_INDIVIDUAL_UNITS:
+        raise RuntimeError("Unidade TRT-3 fora do lote autorizado.")
+    if not env_bool("AJT_SEND_ENABLED", False):
+        raise RuntimeError("Envios AJ/JT estão bloqueados.")
+    if not resend_config_ready():
+        raise RuntimeError("RESEND_API_KEY/FROM_EMAIL ainda não estão configurados.")
+    curriculum = AjtCurriculum.query.order_by(AjtCurriculum.id.desc()).first()
+    if not curriculum:
+        raise RuntimeError("Currículo pericial não cadastrado no módulo AJ/JT.")
+    subject, body, row, config = build_trt3_individual_message(unit_name)
+    recipient = config["email"]
+    previous = AjtSendLog.query.filter_by(tribunal="TRT-3", secretariat=unit_name, recipient=recipient, result="sent").first()
+    if previous:
+        raise RuntimeError("Já existe envio concluído para esta Vara. O sistema bloqueia duplicidade.")
+    daily_limit = max(1, int(os.environ.get("AJT_DAILY_LIMIT", "10")))
+    if ajt_sent_today_count() >= daily_limit:
+        raise RuntimeError("Limite AJ/JT diário atingido.")
+    html_body = "<!doctype html><html><body><div style='max-width:720px;margin:auto;padding:20px'>" + text_to_html(body) + "</div></body></html>"
+    try:
+        provider_response = send_via_resend(recipient=recipient, subject=subject, text_body=body, html_body=html_body, attachments=[{"filename":curriculum.filename,"data":curriculum.data}])
+    except Exception as exc:
+        db.session.add(AjtSendLog(tribunal="TRT-3", secretariat=unit_name, recipient=recipient, subject=subject, result="error", detail=str(exc)[:2000]))
+        db.session.commit()
+        raise
+    now = datetime.now(timezone.utc)
+    row.status = "Solicitação enviada"
+    row.requested_at = row.requested_at or now
+    row.updated_at = now
+    provider_id = str(provider_response.get("id") or "") if isinstance(provider_response, dict) else ""
+    db.session.add(AjtSendLog(tribunal="TRT-3", secretariat=unit_name, recipient=recipient, subject=subject, result="sent", detail=("Resend ID: " + provider_id) if provider_id else None))
+    db.session.commit()
+    return recipient, 1, provider_id
