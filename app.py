@@ -532,7 +532,7 @@ def send_email_for_lead(lead):
         recipient=lead.email,
         subject=subject,
         result="sent",
-        detail=((f"Resend ID: {provider_id}" if provider_id else "") + (" | retry_after_bounce" if allow_retry else "")).strip(" |") or None,
+        detail=(f"Resend ID: {provider_id}" if provider_id else None),
     ))
     db.session.commit()
 
