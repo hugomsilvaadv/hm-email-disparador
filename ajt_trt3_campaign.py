@@ -170,14 +170,14 @@ def upsert_tracking(unit_name, email, source_url):
             contact_email=email,
             city=city,
             vara=unit_name,
-            status="Solicitação enviada",
+            status="Apresentação enviada",
             requested_at=now,
             notes="Campanha individual TRT-3.",
         )
         db.session.add(link)
     else:
         link.contact_email = email
-        link.status = "Solicitação enviada"
+        link.status = "Apresentação enviada"
         link.requested_at = link.requested_at or now
         link.updated_at = now
 
