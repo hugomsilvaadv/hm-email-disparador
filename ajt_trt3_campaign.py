@@ -102,35 +102,34 @@ def today_total_sent():
 
 
 def build_message(unit, context=""):
-    subject = "Disponibilidade para atuação pericial — AJ/JT"
+    subject = "Disponibilidade para futuras nomeações — perito calculista | AJ/JT / PJe TRT-3"
     extra = f"\n{context}\n" if context else ""
     body = f"""À Secretaria da {unit},
 
 Prezados(as),
 
-Meu nome é Hugo Mendes da Silva, advogado inscrito na OAB/SP nº 437.005 e OAB/MG nº 161.454, pós-graduado em Direito do Trabalho e profissional regularmente cadastrado no Sistema AJ/JT e no perfil Perito do PJe do TRT da 3ª Região.
+Meu nome é Hugo Mendes da Silva, advogado inscrito na OAB/SP nº 437.005 e OAB/MG nº 161.454, pós-graduado em Direito do Trabalho e perito calculista com cadastro nos sistemas oficiais da Justiça do Trabalho, inclusive no Sistema AJ/JT e no perfil Perito do PJe do TRT da 3ª Região.
 
-Atuo tecnicamente com cálculos trabalhistas, liquidação de sentença, conferência de cálculos, atualização de créditos e elaboração de cálculos no PJe-Calc.
+Atuo com cálculos trabalhistas e PJe-Calc, incluindo liquidação de sentença, atualização de créditos, conferência de cálculos e apoio técnico em impugnações.
 {extra}
-Venho apresentar minha disponibilidade para atuação como perito calculista perante esta unidade e, se cabível, solicitar minha disponibilização/vinculação para futuras nomeações.
+Escrevo apenas para registrar minha disponibilidade para futuras nomeações como perito calculista perante esta unidade, caso haja necessidade e conforme os critérios do Juízo.
 
-Tenho disponibilidade para atendimento remoto e, quando necessário, comparecimento presencial na Região Metropolitana de Belo Horizonte e em Sete Lagoas.
+Tenho disponibilidade para atuação remota e, quando necessário, presencial mediante alinhamento.
 
-Encaminho, em anexo, meu currículo pericial para apreciação.
+Meu currículo pericial segue anexo apenas para referência, sem necessidade de qualquer providência ou resposta a este e-mail.
 
-Permaneço à disposição para quaisquer informações adicionais ou procedimento específico exigido por esta unidade.
+Permaneço à disposição.
 
 Atenciosamente,
 
 Hugo Mendes da Silva
-Perito calculista cadastrado no Sistema AJ/JT
+Perito calculista | AJ/JT / PJe TRT-3
 OAB/SP 437.005 | OAB/MG 161.454
 HM Perícia & Cálculos
 hugo@hmpericia.com.br
 (31) 99587-1227
 """
     return subject, body
-
 
 def already_sent(unit, email):
     return AjtSendLog.query.filter_by(
