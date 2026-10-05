@@ -56,6 +56,7 @@ AJT_STATUS_OPTIONS = [
 
 AJT_VARA_STATUS_OPTIONS = [
     "Não solicitado",
+    "Apresentação enviada",
     "Solicitação enviada",
     "Aguardando análise",
     "Vinculado",
@@ -531,7 +532,7 @@ def send_email_for_lead(lead):
         recipient=lead.email,
         subject=subject,
         result="sent",
-        detail=(f"Resend ID: {provider_id}" if provider_id else None),
+        detail=((f"Resend ID: {provider_id}" if provider_id else "") + (" | retry_after_bounce" if allow_retry else "")).strip(" |") or None,
     ))
     db.session.commit()
 
@@ -748,28 +749,25 @@ def build_trt15_secretariat_message(secretariat):
     rows = AjtVaraLink.query.filter_by(secretariat=secretariat).filter(
         AjtVaraLink.status != "Não atuar"
     ).order_by(AjtVaraLink.city.asc(), AjtVaraLink.vara.asc()).all()
-    vara_list = "\n".join(f"- {row.vara}" for row in rows)
-    subject = "Disponibilidade para atuação pericial e solicitação de vinculação — AJ/JT"
+    subject = "Disponibilidade para futuras nomeações — perito calculista | SIGEO-JT/AJ-JT"
     body = f"""À Divisão de Atendimento e Administração da Secretaria Conjunta de {secretariat},
 
 Prezados(as),
 
-Meu nome é Hugo Mendes da Silva, advogado inscrito na OAB/SP nº 437.005 e OAB/MG nº 161.454, pós-graduado em Direito do Trabalho e profissional cadastrado no Sistema AJ/JT da Justiça do Trabalho.
+Meu nome é Hugo Mendes da Silva, advogado inscrito na OAB/SP nº 437.005 e OAB/MG nº 161.454, pós-graduado em Direito do Trabalho e perito calculista com cadastro nos sistemas oficiais da Justiça do Trabalho (SIGEO-JT/AJ-JT).
 
-Atuo tecnicamente com cálculos trabalhistas, liquidação de sentença, conferência de cálculos, atualização de créditos e elaboração de cálculos no PJe-Calc.
+Atuo com cálculos trabalhistas e PJe-Calc, incluindo liquidação de sentença, atualização de créditos, conferência de cálculos e apoio técnico em impugnações.
 
-Venho apresentar minha disponibilidade para atuação como perito calculista e, se cabível, solicitar o encaminhamento do pedido de vinculação às Varas do Trabalho abaixo relacionadas:
+Escrevo apenas para registrar minha disponibilidade para futuras nomeações como perito calculista nas unidades atendidas por essa Secretaria Conjunta, caso haja necessidade e conforme os critérios do Juízo.
 
-{vara_list}
+Meu currículo pericial segue anexo apenas para referência, sem necessidade de qualquer providência ou resposta a este e-mail.
 
-Encaminho, em anexo, meu currículo pericial para apreciação.
-
-Permaneço à disposição para prestar informações adicionais ou cumprir eventual procedimento específico exigido pelas respectivas unidades.
+Permaneço à disposição.
 
 Atenciosamente,
 
 Hugo Mendes da Silva
-Perito calculista cadastrado no Sistema AJ/JT
+Perito calculista | SIGEO-JT/AJ-JT
 OAB/SP 437.005 | OAB/MG 161.454
 HM Perícia & Cálculos
 hugo@hmpericia.com.br
@@ -778,7 +776,7 @@ hugo@hmpericia.com.br
     return subject, body, rows
 
 
-def send_trt15_secretariat_email(secretariat):
+def send_trt15_secretariat_email(secretariat, allow_retry=False):
     if secretariat not in TRT15_SECRETARIAT_CITIES:
         raise RuntimeError("Secretaria Conjunta inválida.")
     if not env_bool("AJT_SEND_ENABLED", False):
@@ -800,7 +798,7 @@ def send_trt15_secretariat_email(secretariat):
         recipient=recipient,
         result="sent",
     ).first()
-    if previous:
+    if previous and not allow_retry:
         raise RuntimeError(
             f"Já existe envio concluído para esta Secretaria em {previous.sent_at.strftime('%d/%m/%Y')}. "
             "O sistema bloqueia duplicidade; eventual reenvio deve ser tratado como follow-up."
@@ -845,7 +843,7 @@ def send_trt15_secretariat_email(secretariat):
     now = datetime.now(timezone.utc)
     for row in rows:
         if row.status == "Não solicitado":
-            row.status = "Solicitação enviada"
+            row.status = "Apresentação enviada"
         if not row.requested_at:
             row.requested_at = now
         row.updated_at = now
