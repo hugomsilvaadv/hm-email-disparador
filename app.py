@@ -776,7 +776,7 @@ hugo@hmpericia.com.br
     return subject, body, rows
 
 
-def send_trt15_secretariat_email(secretariat, allow_retry=False):
+TRT15_BOUNCE_BLOCKLIST = {\n    "Araraquara": "bounce confirmado em 30/09/2026 e 06/10/2026",\n    "Piracicaba": "bounce confirmado em 01/10/2026",\n    "Bauru": "bounce confirmado em 01/10/2026",\n}\n\n\ndef send_trt15_secretariat_email(secretariat, allow_retry=False):
     if secretariat not in TRT15_SECRETARIAT_CITIES:
         raise RuntimeError("Secretaria Conjunta inválida.")
     if not env_bool("AJT_SEND_ENABLED", False):
