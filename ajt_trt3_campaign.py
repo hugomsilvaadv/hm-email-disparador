@@ -49,6 +49,17 @@ TRT3_GROUPS = {
         "context": "",
     },
 
+    "BETIM_1_2_3_0610": {
+        "label": "Betim — 1ª, 2ª e 3ª VTs — lote 06/10/2026",
+        "source_url": "https://www.tst.jus.br/documents/18640430/24404697/End03.pdf/81f775dc-5c16-a83d-a024-2a22864ea499",
+        "targets": [
+            ("1ª Vara do Trabalho de Betim", "vt1.betim@trt3.jus.br"),
+            ("2ª Vara do Trabalho de Betim", "vt2.betim@trt3.jus.br"),
+            ("3ª Vara do Trabalho de Betim", "vt3.betim@trt3.jus.br"),
+        ],
+        "context": "",
+    },
+
     "RMBH_EXPANSAO_1": {
         "label": "RMBH/entorno — expansão 1",
         "source_url": "https://www.tst.jus.br/documents/18640430/24404697/End03.pdf/81f775dc-5c16-a83d-a024-2a22864ea499",
