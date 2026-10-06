@@ -13,14 +13,7 @@ DATE_GROUPS = {
     "2026-10-02": "FRI",
 }
 
-# Reenvios controlados: endereços continuam publicados oficialmente pelo TRT-15
-# e não constam na lista de supressões do Resend.
-RETRY_DATES = {
-    "2026-10-06": "Araraquara",
-    "2026-10-07": "Piracicaba",
-    "2026-10-08": "Bauru",
-}
-
+# Reenvios automáticos desativados após bounces confirmados.\n# Araraquara, Piracicaba e Bauru permanecem bloqueados até existir novo contato oficial validado.\nRETRY_DATES = {}\n
 
 def retry_already_sent(secretariat):
     return AjtSendLog.query.filter(
